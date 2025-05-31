@@ -1,0 +1,85 @@
+---
+title: "PEC_4"
+author: "Otelo Pons"
+date: "2025-05-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Inicialización entorno trabajo
+
+```{r}
+
+# definimos y ponemos el directorio de trabajo
+directorio_trabajo <- paste0(getwd(), ' ')
+setwd(directorio_trabajo)
+
+# instalamos la librerias que vamos a utilizar
+install_package <- function(package_name)
+if (!requireNamespace(package_name, quietly = TRUE)) {
+  install.packages(package_name)
+}
+
+```
+
+# Carga del dataset y exploración inicial
+
+<https://hbiostat.org/data/repo/cdiabetes>
+
+```{r}
+diabetes_df <- read.csv("data/diabetes.csv")
+
+head(diabetes_df)
+
+str(diabetes_df)
+
+#summary(diabetes_df)
+
+```
+
+## análisis de datos faltantes
+
+```{r}
+colSums(is.na(diabetes_df))
+
+```
+
+```{r}
+# Creamos una función para que la podamos reutilizar
+estadisticos_columna <- function(col) {
+  if (is.numeric(col)) {
+    # Si es numérica, devolver resumen estadístico básico y el porcentaje de nulos
+    # Para hacer el porcentaje basta con hacer la media del numero de nulos (nºnulos / nº valores de la columna)
+    # Para los estadisticos eliminamos los valores faltantes con na.rm=TRUE
+    return(c(
+      Porcentaje_Nulos = round(mean(is.na(col)) * 100, 2),
+      Min = min(col, na.rm = TRUE),
+      Q1 = quantile(col, 0.25, na.rm = TRUE),
+      Median = median(col, na.rm = TRUE),
+      Mean = mean(col, na.rm = TRUE),
+      Q3 = quantile(col, 0.75, na.rm = TRUE),
+      Max = max(col, na.rm = TRUE)
+    ))
+  } 
+}
+
+# Escogemos solo las variables numéricas
+columnas_numericas <- diabetes_df[,sapply(diabetes_df, function(x) is.numeric(x))]
+
+# Aplicamos la funcion de estadísticos para cada variable
+estadisticos <- lapply(columnas_numericas,estadisticos_columna)
+
+# Convertir lista de vectores a data.frame
+tabla_resumen <- do.call(rbind, estadisticos)
+
+# Cramos el dataframe final añadiendo el nombre de las variables como primera columna
+tabla_resumen <- data.frame(
+  Variable = rownames(tabla_resumen),
+  tabla_resumen, row.names = NULL)
+
+# Mostrar la tabla de forma bonita
+knitr::kable(tabla_resumen, caption = "Estadísticos de variables numéricas ", align = "lrrrrrrr")
+```
