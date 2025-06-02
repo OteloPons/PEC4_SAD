@@ -14,6 +14,7 @@ output:
 \tableofcontents  
 \newpage
 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -31,6 +32,7 @@ Explicación del dataset escogido para el análisis.
 Explicación del análisis que se va ha realizar
 
 Ej: 
+
 * Descubrir cuales son los mejores predictores para la diabetes.
 
 * Crear un modelo para predecir la diabetes
@@ -67,6 +69,7 @@ install_package("glue")     # para formatera texto interpolando variables
 
 ## Carga del dataset y exploración inicial
 
+
 ```{r}
 diabetes_df <- read.csv("data/diabetes.csv")
 
@@ -77,10 +80,10 @@ str(diabetes_df)
 #summary(diabetes_df)
 
 
-
 ```
 
 ### Análisis de variables numéricas
+
 
 ```{r}
 # Creamos una función para que la podamos reutilizar
