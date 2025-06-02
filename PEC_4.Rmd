@@ -3,8 +3,8 @@ title: "PEC_4"
 author: "Enrique Gonzalo Martín / Otelo Pons Alonso"
 date: "2025-05-31"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
   toc: true
   toc_depth: 3  
   number_sections: true
@@ -18,7 +18,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Sección 1. Contexto y objetivo del estudio. Datos.
+# Sección 1. Contexto y objetivo del estudio. 
 
 Explicación del dataset escogido para el análisis.
 
@@ -30,27 +30,40 @@ Explicación del dataset escogido para el análisis.
 
 Explicación del análisis que se va ha realizar
 
-![](dataframe_diabetes.png){width="620"}
+Ej: 
+* Descubrir cuales son los mejores predictores para la diabetes.
 
-# Sección 2. Prospección y preparación de los datos
+* Crear un modelo para predecir la diabetes
+
 
 ## Inicialización entorno trabajo
 
-```{r}
-
-# definimos y ponemos el directorio de trabajo
+```{r}  
+# definimos y ponemos el directorio de trabajo 
 directorio_trabajo <- paste0(getwd(), ' ')
-setwd(directorio_trabajo)
+setwd(directorio_trabajo)  
 
 # instalamos la librerias que vamos a utilizar
-install_package <- function(package_name)
-if (!requireNamespace(package_name, quietly = TRUE)) {
-  install.packages(package_name)
-}
+install_package <- function(package_name){
+  if (!requireNamespace(package_name, quietly = TRUE)) {
+    install.packages(package_name) 
+  }
 
 install_package("knitr")    # para la generación de tablas mas vistosas
 install_package("glue")     # para formatera texto interpolando variables
+
+}
 ```
+
+
+
+
+# Sección 2. Prospección y preparación de los datos
+
+## Descripción del conjunto de datos
+
+
+![](dataframe_diabetes.png){width="620"}
 
 ## Carga del dataset y exploración inicial
 
@@ -110,9 +123,35 @@ knitr::kable(tabla_resumen,
 
 ### Análisis de variables categoricas
 
+### Transformaciones y creación de variables sintéticas
+
+Ej:
+* Estandarizar unidades de medida
+
+* Cambiar algunas variables a tipo factor
+
+* Crear variables nuevas que puedan ser buenos predictores:
+
+  * Indice de masa corporal. = peso / altura^2
+  
+  * Ratio cintura cadera. waist / hip
+  
+  * Diabetes: si/no
+  
+  
 # Sección 3. Análisis exploratorio de los datos
 
+## 3.1 Análisis descriptivo
+
+## 3.2 Estudio probabilístico
+
+
 # Sección 4. Modelos de aprendizaje automático
+
+ Por ejemplo
+ 
+ * Regresión logística para intentar predecir diabetes
+ 
 
 # Sección 5. Visualización
 
