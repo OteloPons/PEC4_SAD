@@ -1,51 +1,78 @@
 ---
 title: "PEC_4"
-author: "Otelo Pons"
+author: "Enrique Gonzalo Martín / Otelo Pons Alonso"
 date: "2025-05-31"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
+  toc: true
+  toc_depth: 3  
+  number_sections: true
+  toc_float: true
 ---
+
+\tableofcontents  
+\newpage
+
+probando cambios
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Inicialización entorno trabajo
+# Sección 1. Contexto y objetivo del estudio.
 
-```{r}
+Para realizar esta actividad hemos seleccionado el conjunto de datos "Diabetes data", publicado en la página https://hbiostat.org/data/. Nuestro propósito es examinar las relaciones estadísticas entre múltiples marcadores o parámetros biológicos, en una N de sujetos lo más grande posible. Tras analizar distintos conjuntos, decidimos emplear el de Diabetes porque se ajustaba a nuestras necesidades: múltiples variables que podemos representar y analizar en busca de correlaciones, y una N de observaciones amplia (403).
 
-# definimos y ponemos el directorio de trabajo
+Este conjunto de datos es muy completo y permite hacer un buen estudio estadístico enmarcado en el ámbito biológico. Contiene 403 observaciones y 19 variables: ID del paciente, nivel de colesterol, nivel de glucosa estable en sangre en ayunas, nivel de HDL, relación entre colesterol total y colesterol HDL, el nivel de hemoglobina glicosilada, la ubicación geográfica del paciente, la edd, el sexo, la altura, el peso, la complexión, el diámetro de la cintura, el diámetro de la cadera, la tensión sistólica y diastólica medidas en 2 ocasiones y el tiempo transcurrido entre la última comida y el análisis.
+
+
+Nuestra finalidad es encontrar marcadores en los pacientes que permitan realizar un diagnóstico temprano de la diabetes, o predecir qué pacientes son susceptibles de desarrollar diabetes en el futuro. Intentaremos crear un modelo para predecir la diabetes.
+
+
+## Inicialización entorno trabajo
+
+```{r}  
+# definimos y ponemos el directorio de trabajo 
 directorio_trabajo <- paste0(getwd(), ' ')
-setwd(directorio_trabajo)
+setwd(directorio_trabajo)  
 
 # instalamos la librerias que vamos a utilizar
-install_package <- function(package_name)
-if (!requireNamespace(package_name, quietly = TRUE)) {
-  install.packages(package_name)
-}
+install_package <- function(package_name){
+  if (!requireNamespace(package_name, quietly = TRUE)) {
+    install.packages(package_name) 
+  }
 
+install_package("knitr")    # para la generación de tablas mas vistosas
+install_package("glue")     # para formatera texto interpolando variables
+
+}
 ```
 
-# Carga del dataset y exploración inicial
 
-<https://hbiostat.org/data/repo/cdiabetes>
+
+
+# Sección 2. Prospección y preparación de los datos
+
+Ahora, observaremos el contenido y la estructura del conjunto de datos, las variables presentes y su resumen estadístico, empleando las distintas funciones que hemos ido estudiando. Además, comprobaremos si contiene NAs y, en caso afirmativo, cuántos de ellos hay en cada columna.
+
+## Descripción del conjunto de datos
+
+
+![](dataframe_diabetes.png){width="620"}
+
+## Carga del dataset y exploración inicial
+
 
 ```{r}
 diabetes_df <- read.csv("data/diabetes.csv")
 
-head(diabetes_df)
-
 str(diabetes_df)
 
-#summary(diabetes_df)
-
 ```
 
-## análisis de datos faltantes
+### Análisis de variables numéricas
 
-```{r}
-colSums(is.na(diabetes_df))
-
-```
 
 ```{r}
 # Creamos una función para que la podamos reutilizar
@@ -56,18 +83,21 @@ estadisticos_columna <- function(col) {
     # Para los estadisticos eliminamos los valores faltantes con na.rm=TRUE
     return(c(
       Porcentaje_Nulos = round(mean(is.na(col)) * 100, 2),
-      Min = min(col, na.rm = TRUE),
-      Q1 = quantile(col, 0.25, na.rm = TRUE),
-      Median = median(col, na.rm = TRUE),
-      Mean = mean(col, na.rm = TRUE),
-      Q3 = quantile(col, 0.75, na.rm = TRUE),
-      Max = max(col, na.rm = TRUE)
+      Min = round(min(col, na.rm = TRUE),2),
+      Q1 = round(quantile(col, 0.25, na.rm = TRUE),2),
+      Median = round(median(col, na.rm = TRUE),2),
+      Mean = round(mean(col, na.rm = TRUE),2),
+      Sd = round(sd(col, na.rm = TRUE),2),
+      Q3 = round(quantile(col, 0.75, na.rm = TRUE),2),
+      Max = round(max(col, na.rm = TRUE),2)
     ))
   } 
 }
 
+estadisticas_numericas <- function(df) {
+  
 # Escogemos solo las variables numéricas
-columnas_numericas <- diabetes_df[,sapply(diabetes_df, function(x) is.numeric(x))]
+columnas_numericas <- df[,sapply(df, function(x) is.numeric(x))]
 
 # Aplicamos la funcion de estadísticos para cada variable
 estadisticos <- lapply(columnas_numericas,estadisticos_columna)
@@ -81,5 +111,415 @@ tabla_resumen <- data.frame(
   tabla_resumen, row.names = NULL)
 
 # Mostrar la tabla de forma bonita
-knitr::kable(tabla_resumen, caption = "Estadísticos de variables numéricas ", align = "lrrrrrrr")
+knitr::kable(tabla_resumen,
+             caption = "Estadísticos de variables numéricas ",
+             align = "lrrrrrrrr")
+}
+
+estadisticas_numericas(diabetes_df)
 ```
+
+
+### Transformaciones y creación de variables sintéticas
+
+Para los propósitos de nuestro estudio, vamos a eliminar las variables categóricas para poder hacer análisis estadísticos de las numéricas. Asimismo, eliminaremos los NA para que no causen problemas en lo pasos posteriores. Tenemos que transformar las magnitudes medidas para que estén en las unidades del sistema decimal, puesto que el peso está en libras y la altura en pulgadas.
+
+Es cierto que hay muchas variables que contienen NAs, pero en la mayoría de los casos son minoritarios. Las excepciones son las variables bp.2s y bp.2d, de las cuales faltan más de la mitad de observaciones. Por esta razón, hemos decidido descartar estas 2 variables de nuestro análisis.
+
+Para poder trabajar mejor con los datos, eliminamos los NAs y factorizamos las variables categóricas. Esto permite evitar errores en los cálculos y representaciones, y facilitar la creación de gráficos con una variable independiente no numérica, respectivamente. Asimismo, utilizaremos las variables disponibles para generar nuevos parámetros que, basándonos en la literatura, consideramos informativos. Concretamente, el índice de masa corporal (peso/altura^2) y la relación cadera/cintura.
+
+Para comprobar la consistencia de los datos contenidos en este conjunto, llevamos a cabo un análisis de los valores aberrantes (que se salen de rango) en las distintas variables empleadas.
+
+```{r}
+# función que pasa de pulgadas a metros
+inches_to_meters <- function(inches) {
+  meters <- inches * 0.0254
+  return(meters)
+}
+
+# función que pasa de libras a kilos
+pounds_to_kilos <- function(pounds){
+  kilos <- pounds * 0.453592
+}
+
+# altura, cintura y cadera de pulgadas a metros
+
+variables_en_pulgadas <- c("height","hip","waist")
+
+diabetes_df[variables_en_pulgadas] <- lapply(
+  diabetes_df[variables_en_pulgadas],
+  inches_to_meters
+)
+
+
+# peso de libras a kilos
+diabetes_df$weight <- pounds_to_kilos(diabetes_df$weight)
+
+
+```
+
+
+1) En base al nivel de hemoglobina glicosilada, queremos saber, basándonos en la literatura, si el paciente puede ser clasificado como diabético. Hemos visto que normalmente se considera que una persona es diabética si presenta un nivel de GlyHb del 6,5% o más.
+
+2) En base a la tensión arterial, investigaremos si el paciente es hiper- o hipotenso. Se considera hipertenso si la PS es igual/mayor de 140 mmHg y la PD es igual/mayor de 90 mmHg. Se considera hipotenso si la PS es menor de 90 y la PD menor de 60.
+
+3) Estudiaremos la relación cintura/cadera para ver si el paciente es obeso y si la obesidad/no obesidad afecta a la diabetes.
+
+4) Estudiaremos el índice de masa corporal por la misma razón que el punto 3), para comparar ambos parámetro entre sí y con la presencia/ausencia de diabetes diagnosticada.
+
+  
+```{r}
+# indice de masa corporal
+diabetes_df$BMI <- diabetes_df$weight / diabetes_df$height^2
+
+# ratio cintura cadera (Waist Hip Ratio)
+diabetes_df$WHR <- diabetes_df$waist / diabetes_df$hip
+```
+
+
+
+Después de hacer las transformaciones y la creación de nuevas variables veamos como queda finalmente nuestro conjunto de datos.
+```{r}
+
+estadisticas_numericas(diabetes_df)
+```
+
+### Análisis de variables categoricas
+* Cambiar algunas variables a tipo factor
+
+```{r}
+columnas_factorizables <- c("location", "gender", "frame")
+
+diabetes_df[columnas_factorizables] <- lapply(
+  diabetes_df[columnas_factorizables],
+  as.factor)
+
+
+
+str(diabetes_df[columnas_factorizables])
+
+  # Factorizamos la edad
+diabetes_df$age <- cut(diabetes_df$age,   # partimos la variable
+  breaks = seq(0, 100, by = 10),          # en intervalos de 10 años
+  right = FALSE,                 # intervalo cerrado a la izquierda [x,y)
+  include.lowest = TRUE          # incluye el primer valor en el primer grupo
+)
+```
+
+* Sintesis de variables categóricas
+
+  * Diabetes: $SI/NO$. Supondremos diabetes tipo 2 si el porcentaje de glucosa o azucar en sangre (glyhb) supera el 6.5% . Para simplificar no crearemos el grupo de prediabetes (glyhb entre 5.7 y 6.4%)
+  
+  * Hipertenso: $SI/NO$. Supondremos hypertensión si la presión sistólica es mayor de 140 o la diastólica es mayor de 90
+  
+  
+```{r}
+# suponemos que es diabético si glyhb >= 6.5
+diabetes_df$diabetes <- cut(diabetes_df$glyhb,
+                            breaks = c(0,  6.49, Inf),
+                            labels = c("NO","SI"),
+                            right = TRUE) # right=TRUE => intervalo es (a, b]
+
+diabetes_df$hipertenso <- as.factor(ifelse(
+                                      diabetes_df$bp.1s >= 140 &
+                                      diabetes_df$bp.1d >= 90,
+                                      "SI",
+                                      "NO")
+                                    )
+summary(diabetes_df[,c("diabetes","hipertenso")])
+```
+
+# Sección 3. Análisis exploratorio de los datos
+
+
+
+```{r, fig.width=15, fig.height=9}
+diabetes_df_limpio <- na.omit(diabetes_df)
+
+columnas_numericas <- diabetes_df_limpio[,sapply(diabetes_df_limpio, function(x) is.numeric(x))]
+
+cor(columnas_numericas)
+
+head(diabetes_df_limpio)
+```
+
+
+```{r}
+
+library(ggplot2)
+
+ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$stab.glu, y = diabetes_df_limpio$glyhb)) +
+  geom_point(aes(fill = diabetes_df_limpio$stab.glu)) +     # Definimos tipo de gráfico
+  xlab("glucosa") +     # Etiqueta eje X
+  ylab ("glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Nivel de hemoglobina glicosilada según el valor de la glucosa") +    # Título gráfico
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5)   # Línea de regresión sin IC 
+ 
+ 
+
+```
+
+
+```{r, fig.width=15, fig.height=9}
+
+grafico_1 <- ggplot(diabetes_df_limpio, aes (x = age, y = glyhb)) +
+  geom_boxplot() +     # Definimos tipo de gráfico
+  xlab("Edad") +     # Etiqueta eje X
+  ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Nivel de hemoglobina glicosilada según la edad") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15))
+  )
+
+grafico_2 <- ggplot(diabetes_df_limpio, aes (x = gender, y = glyhb)) +
+  geom_boxplot() +     # Definimos tipo de gráfico
+  xlab("Sexo") +     # Etiqueta eje X
+  ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Nivel de hemoglobina glicosilada según el sexo") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 10)),
+    axis.title.y = element_text(margin = margin(r = 10))
+  )
+
+# grafico_3 <- ggplot(diabetes_df_limpio, aes (x = bmi, y = glyhb)) +
+#   geom_point() +     # Definimos tipo de gráfico
+#   xlab("BMI") +     # Etiqueta eje X
+#   ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
+#   ggtitle ("Nivel de hemoglobina glicosilada según el bmi") +    # Título gráfico
+#  theme_classic() +
+#   theme(    
+#     axis.title.x = element_text(margin = margin(t = 10)),
+#     axis.title.y = element_text(margin = margin(r = 10))
+#   )
+
+# grafico_4 <- ggplot(diabetes_df_limpio, aes (x = cintura_cadera, y = glyhb)) +
+#   geom_point() +     # Definimos tipo de gráfico
+#   xlab("cintura/cadera") +     # Etiqueta eje X
+#   ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
+#   ggtitle ("Nivel de hemogl. glicosilada según índice cint/cad") +    # Título gráfico
+#  theme_classic() +
+#   theme(    
+#     axis.title.x = element_text(margin = margin(t = 10)),
+#     axis.title.y = element_text(margin = margin(r = 10))
+#   )
+
+grafico_5 <- ggplot(diabetes_df_limpio, aes (x = frame, y = glyhb)) +
+  geom_boxplot() +     # Definimos tipo de gráfico
+  xlab("Complexión") +     # Etiqueta eje X
+  ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Nivel de hemoglobina glicosilada según la edad") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15))
+  )
+  
+grafico_6 <- ggplot(diabetes_df_limpio, aes (x = hipertenso, y = glyhb)) +
+  geom_boxplot() +     # Definimos tipo de gráfico
+  xlab("Hipertensión") +     # Etiqueta eje X
+  ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Nivel de hemoglobina glicosilada según la edad") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15))
+  )
+
+plot_grid(grafico_1, grafico_2, grafico_5, grafico_6,  ncol = 2, nrow =2)
+```
+
+Añadir 2 gráficos: boxplots
+
+¿Hacer ANOVA?
+
+
+
+```{r}
+
+
+```
+
+
+## 3.1 Análisis descriptivo
+
+## 3.2 Estudio probabilístico
+
+
+# Sección 4. Modelos de aprendizaje automático
+
+ Por ejemplo
+ 
+ * Regresión logística para intentar predecir diabetes.
+ 
+ * Análisis cluster
+ 
+
+# Sección 5. Visualización
+
+```{r}
+  # Convertimos en .csv sin números de fila para cargarlo en Shiny
+write.csv(diabetes_df_ampl_2, "diabetes.csv", row.names = FALSE)
+```
+
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+library(shiny)  # Cargamos el paquete shiny
+library(ggplot2)  # Cargamos el paquete ggplot2
+
+  # Definimos la interfaz de usuario (UI) con la función fluidPage()
+ui <- fluidPage(
+  titlePanel(textOutput("titulo_archivo")),     # Título de la aplicación dependiente del archivo cargado
+
+  # Entrada de datos de tipo numérico con numericInput()
+  # Entrada de datos categóricos con selectInput()
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("file", "Especifica el conjunto de datos a mostrar"),
+      
+      uiOutput("x_selector"),
+      uiOutput("y_selector"),
+
+      # Definimos los selectores de variables x e y
+
+      selectInput("plot_type", "Selecciona el tipo de gráfico:", 
+                  choices = c("Gráfico de dispersión" = "scatter", "Gráfico de barras" = "bars", "Histograma" = "histogram")),
+      actionButton("show_summary", "Resumen parámetros estadísticos"),
+      hr()
+    ),
+    
+        # Resultados panel principal
+    mainPanel(
+      plotOutput("plot"),
+      verbatimTextOutput("summary_text")
+    )
+  )
+) 
+
+
+  # Definimos los parámetros del servidor
+server <- function(input, output) {
+  
+  data <- reactive({    
+    req(input$file)
+    read.csv(input$file$datapath, row.names = NULL)   # Los datos usados dependen del archivo seleccionado
+  })
+  
+    # Definimos título dependiente del archivo
+  output$titulo_archivo <- renderText({
+  if (is.null(input$file)) {    # Si no se ha cargado ningún archivo
+    "Cargue un archivo"
+  } else {
+    paste(input$file$name)   # Usar el nombre del archivo cargado
+  }
+})
+  
+  # Detecta las variables del archivo cargado
+    output$x_selector <- renderUI({
+    req(data())
+    selectInput("x", "Selecciona la variable X:", choices = names(data()))
+  })
+  
+  output$y_selector <- renderUI({
+    req(data())
+    selectInput("y", "Selecciona la variable Y:", choices = names(data()))
+  })
+  
+  
+    # Creamos los gráfico de salida a elegir
+  output$plot <- renderPlot({
+    req(data())   # Te pide que selecciones las variables
+    x <- input$x   # Valores X elegidos
+    y <- input$y    # Valores Y elegidos
+    plot_type <- input$plot_type   # El gráfico depende de la selección
+    
+    if (plot_type == "scatter") {     # Gráfico de dispersión
+      ggplot(data(), aes_string(x, y)) +
+        geom_point() +
+        xlab(x) +
+        ylab(y) +
+        ggtitle("Gráfico de Dispersión")
+      
+    } else if (plot_type == "bars") {    # Gráfico de barras
+      ggplot(data(), aes_string(x, y)) +
+        geom_bar(stat="identity") +
+        xlab(x) +
+        ylab(y) +
+        ggtitle("Gráfico de Barras")
+       
+    } else if (plot_type == "histogram") {   # Histograma
+      if (is.numeric(data()[[x]])) {         # Si la variable es numérica...
+        ggplot(data(), aes_string(x)) +      # ...genera el gráfico
+          geom_histogram(fill = "blue", color = "black", bins = 30) +
+         xlab(x) +
+          ylab("Frecuencia") +
+        ggtitle("Histograma")
+      } else {             # Si la variable no es numérica...
+        plot.new()         # Crea un nuevo marco donde mostrar contenido
+        text(0.5, 0.5, 
+             "No se puede hacer histograma con variable categórica", 
+             cex = 1.2)    # Avisa de que se está usando mal el histograma
+  }
+}
+  })
+  
+    # Salida de texto
+  
+  # Creamos una función para que la podamos reutilizar
+estadisticos_columna <- function(col) {
+  if (is.numeric(col)) {
+    # Si es numérica, devolver resumen estadístico básico y el porcentaje de nulos
+    # Para hacer el porcentaje basta con hacer la media del numero de nulos (nºnulos / nº valores de la columna)
+    # Para los estadisticos eliminamos los valores faltantes con na.rm=TRUE
+    return(c(
+      Porcentaje_Nulos = round(mean(is.na(col)) * 100, 2),
+      Min = round(min(col, na.rm = TRUE),2),
+      Q1 = round(quantile(col, 0.25, na.rm = TRUE),2),
+      Median = round(median(col, na.rm = TRUE),2),
+      Mean = round(mean(col, na.rm = TRUE),2),
+      Sd = round(sd(col, na.rm = TRUE),2),
+      Q3 = round(quantile(col, 0.75, na.rm = TRUE),2),
+      Max = round(max(col, na.rm = TRUE),2)
+    ))
+  } 
+}
+
+estadisticas_numericas <- function(df) {
+  
+# Escogemos solo las variables numéricas
+columnas_numericas <- df[,sapply(df, function(x) is.numeric(x))]
+
+# Aplicamos la funcion de estadísticos para cada variable
+estadisticos <- lapply(columnas_numericas,estadisticos_columna)
+
+# Convertir lista de vectores a data.frame
+tabla_resumen <- do.call(rbind, estadisticos)
+
+# Cramos el dataframe final añadiendo el nombre de las variables como primera columna
+tabla_resumen <- data.frame(
+  Variable = rownames(tabla_resumen),
+  tabla_resumen, row.names = NULL)
+
+# Mostrar la tabla de forma bonita
+knitr::kable(tabla_resumen,
+             caption = "Estadísticos de variables numéricas ",
+             align = "lrrrrrrrr")
+}
+  
+  output$summary_text <- renderPrint({  
+    req(data())
+    if (input$show_summary > 0) {   # Si haces click en el botón
+      estadisticas_numericas(data())    # Muestra el resumen de los datos
+    }
+  })
+}
+    
+    
+
+# Creamos la aplicación Shiny
+shinyApp(ui = ui, server = server)
+```
+
+# Sección 6. Conclusiones
