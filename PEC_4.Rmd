@@ -73,12 +73,7 @@ install_package("glue")     # para formatera texto interpolando variables
 ```{r}
 diabetes_df <- read.csv("data/diabetes.csv")
 
-head(diabetes_df)
-
 str(diabetes_df)
-
-#summary(diabetes_df)
-
 
 ```
 
@@ -167,13 +162,10 @@ diabetes_df$weight <- pounds_to_kilos(diabetes_df$weight)
 
 * Crear variables nuevas que puedan ser buenos predictores:
 
-  * Indice de masa corporal. = peso / altura^2
+  * Indice de masa corporal. $BMI = peso / altura^2$
   
-  * Ratio cintura cadera. waist / hip
-  
-  * Diabetes: si/no
-  
-  * Hipertenso: si/no
+  * Ratio cintura cadera $WHR = waist / hip$
+
   
 ```{r}
 # indice de masa corporal
@@ -181,14 +173,6 @@ diabetes_df$BMI <- diabetes_df$weight / diabetes_df$height^2
 
 # ratio cintura cadera (Waist Hip Ratio)
 diabetes_df$WHR <- diabetes_df$waist / diabetes_df$hip
-
-# suponemos que es diabético si glyhb >= 6.5
-diabetes_df$diabetes <- cut(diabetes_df$glyhb,
-                                   breaks = c(0,  6.49, Inf),
-                                   labels = c("NO","SI"),
-                                   right = TRUE) # right=TRUE significa que el intervalo es (a, b]
-summary(diabetes_df$diabetes)
-table(diabetes_df$diabetes, useNA = "ifany")
 ```
 
 
@@ -212,6 +196,28 @@ diabetes_df[columnas_factorizables] <- lapply(
 str(diabetes_df[columnas_factorizables])
 ```
 
+* Sintesis de variables categóricas
+
+  * Diabetes: $SI/NO$. Supondremos diabetes tipo 2 si el porcentaje de glucosa o azucar en sangre (glyhb) supera el 6.5% . Para simplificar no crearemos el grupo de prediabetes (glyhb entre 5.7 y 6.4%)
+  
+  * Hipertenso: $SI/NO$. Supondremos hypertensión si la presión sistólica es mayor de 140 o la diastólica es mayor de 90
+  
+  
+```{r}
+# suponemos que es diabético si glyhb >= 6.5
+diabetes_df$diabetes <- cut(diabetes_df$glyhb,
+                            breaks = c(0,  6.49, Inf),
+                            labels = c("NO","SI"),
+                            right = TRUE) # right=TRUE => intervalo es (a, b]
+
+diabetes_df$hipertenso <- as.factor(ifelse(
+                                      diabetes_df$bp.1s >= 140 |
+                                      diabetes_df$bp.1d >= 90,
+                                      "SI",
+                                      "NO")
+                                    )
+summary(diabetes_df[,c("diabetes","hipertenso")])
+```
 
 # Sección 3. Análisis exploratorio de los datos
 
