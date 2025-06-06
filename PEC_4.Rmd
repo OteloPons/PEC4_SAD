@@ -94,18 +94,21 @@ estadisticos_columna <- function(col) {
     # Para los estadisticos eliminamos los valores faltantes con na.rm=TRUE
     return(c(
       Porcentaje_Nulos = round(mean(is.na(col)) * 100, 2),
-      Min = min(col, na.rm = TRUE),
-      Q1 = quantile(col, 0.25, na.rm = TRUE),
-      Median = median(col, na.rm = TRUE),
-      Mean = mean(col, na.rm = TRUE),
-      Q3 = quantile(col, 0.75, na.rm = TRUE),
-      Max = max(col, na.rm = TRUE)
+      Min = round(min(col, na.rm = TRUE),2),
+      Q1 = round(quantile(col, 0.25, na.rm = TRUE),2),
+      Median = round(median(col, na.rm = TRUE),2),
+      Mean = round(mean(col, na.rm = TRUE),2),
+      Sd = round(sd(col, na.rm = TRUE),2),
+      Q3 = round(quantile(col, 0.75, na.rm = TRUE),2),
+      Max = round(max(col, na.rm = TRUE),2)
     ))
   } 
 }
 
+estadisticas_numericas <- function(df) {
+  
 # Escogemos solo las variables numéricas
-columnas_numericas <- diabetes_df[,sapply(diabetes_df, function(x) is.numeric(x))]
+columnas_numericas <- df[,sapply(df, function(x) is.numeric(x))]
 
 # Aplicamos la funcion de estadísticos para cada variable
 estadisticos <- lapply(columnas_numericas,estadisticos_columna)
@@ -121,17 +124,46 @@ tabla_resumen <- data.frame(
 # Mostrar la tabla de forma bonita
 knitr::kable(tabla_resumen,
              caption = "Estadísticos de variables numéricas ",
-             align = "lrrrrrrr")
+             align = "lrrrrrrrr")
+}
+
+estadisticas_numericas(diabetes_df)
 ```
 
-### Análisis de variables categoricas
 
 ### Transformaciones y creación de variables sintéticas
 
 Ej:
-* Estandarizar unidades de medida
 
-* Cambiar algunas variables a tipo factor
+* Estandarizar unidades de medida: inches -> meters, puonds -> Kg
+```{r}
+# función que pasa de pulgadas a metros
+inches_to_meters <- function(inches) {
+  meters <- inches * 0.0254
+  return(meters)
+}
+
+# función que pasa de libras a kilos
+pounds_to_kilos <- function(pounds){
+  kilos <- pounds * 0.453592
+}
+
+# altura, cintura y cadera de pulgadas a metros
+
+variables_en_pulgadas <- c("height","hip","waist")
+
+diabetes_df[variables_en_pulgadas] <- lapply(
+  diabetes_df[variables_en_pulgadas],
+  inches_to_meters
+)
+
+
+# peso de libras a kilos
+diabetes_df$weight <- pounds_to_kilos(diabetes_df$weight)
+
+
+```
+
 
 * Crear variables nuevas que puedan ser buenos predictores:
 
@@ -141,7 +173,46 @@ Ej:
   
   * Diabetes: si/no
   
+  * Hipertenso: si/no
   
+```{r}
+# indice de masa corporal
+diabetes_df$BMI <- diabetes_df$weight / diabetes_df$height^2
+
+# ratio cintura cadera (Waist Hip Ratio)
+diabetes_df$WHR <- diabetes_df$waist / diabetes_df$hip
+
+# suponemos que es diabético si glyhb >= 6.5
+diabetes_df$diabetes <- cut(diabetes_df$glyhb,
+                                   breaks = c(0,  6.49, Inf),
+                                   labels = c("NO","SI"),
+                                   right = TRUE) # right=TRUE significa que el intervalo es (a, b]
+summary(diabetes_df$diabetes)
+table(diabetes_df$diabetes, useNA = "ifany")
+```
+
+
+
+Después de hacer las transformaciones y la creación de nuevas variables veamos como queda finalmente nuestro conjunto de datos.
+```{r}
+
+estadisticas_numericas(diabetes_df)
+```
+
+### Análisis de variables categoricas
+* Cambiar algunas variables a tipo factor
+
+```{r}
+columnas_factorizables <- c("location", "gender", "frame")
+
+diabetes_df[columnas_factorizables] <- lapply(
+  diabetes_df[columnas_factorizables],
+  as.factor)
+
+str(diabetes_df[columnas_factorizables])
+```
+
+
 # Sección 3. Análisis exploratorio de los datos
 
 ## 3.1 Análisis descriptivo
@@ -153,7 +224,9 @@ Ej:
 
  Por ejemplo
  
- * Regresión logística para intentar predecir diabetes
+ * Regresión logística para intentar predecir diabetes.
+ 
+ * Análisis cluster
  
 
 # Sección 5. Visualización
