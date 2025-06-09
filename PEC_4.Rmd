@@ -3,8 +3,8 @@ title: "PEC_4"
 author: "Enrique Gonzalo Martín / Otelo Pons Alonso"
 date: "2025-05-31"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
   toc: true
   toc_depth: 3  
   number_sections: true
@@ -53,7 +53,8 @@ install_package <- function(package_name){
 
 install_package("knitr")    # para la generación de tablas mas vistosas
 install_package("glue")     # para formatera texto interpolando variables
-
+install_package("ggplot2")  # para los gráficos
+install_package("corrplot")
 }
 ```
 
@@ -193,7 +194,9 @@ diabetes_df[columnas_factorizables] <- lapply(
   diabetes_df[columnas_factorizables],
   as.factor)
 
-str(diabetes_df[columnas_factorizables])
+print(str(diabetes_df[columnas_factorizables]))
+
+print(summary(diabetes_df[columnas_factorizables]))
 ```
 
 * Sintesis de variables categóricas
@@ -222,6 +225,66 @@ summary(diabetes_df[,c("diabetes","hipertenso")])
 # Sección 3. Análisis exploratorio de los datos
 
 ## 3.1 Análisis descriptivo
+```{r, fig.width=15, fig.height=9}
+par(mfrow = c(2, 2)) 
+
+boxplot(glyhb ~ gender, data= diabetes_df)
+boxplot(glyhb ~ frame, data= diabetes_df)
+boxplot(glyhb ~ location, data= diabetes_df)
+boxplot(glyhb ~ hipertenso, data= diabetes_df)
+
+par(mfrow = c(1, 1)) 
+```
+
+
+```{r}
+library(ggplot2)
+
+
+categoricas <- c("gender","frame","location","hipertenso")
+plot_list <- list()
+
+for (categorica in categoricas){
+  data <- data.frame(
+    categorical_var = diabetes_df[categorica],
+    target = diabetes_df$glyhb
+  )
+  
+  p <- ggplot(data) +
+    geom_boxplot(aes_string(x = categorica, y = "target", fill = categorica), na.rm = TRUE, show.legend = FALSE) +
+    theme_minimal()
+  
+  plot_list[[categorica]] <- p
+}
+print(plot_list)
+
+
+
+```
+
+```{r}
+  
+# Escogemos solo las variables numéricas
+columnas_numericas <- diabetes_df[,sapply(diabetes_df, function(x) is.numeric(x))]
+
+matriz_correlacion <- cor(columnas_numericas, method = "pearson", use = "pairwise.complete.obs")
+```
+
+
+```{r}
+library(corrplot)
+corrplot(matriz_correlacion,
+             method = "circle",      # "circle", "square", "ellipse", "number", "shade", "color", "pie"
+             type = "upper",          # "full", "lower", "upper"
+             tl.col = "black",      # Color del texto de las etiquetas
+             tl.srt = 45,           # Rotación del texto de las etiquetas
+             addCoef.col =  NULL, # Añadir coeficientes si el método es 'number' o el tipo es 'full'
+             number.cex = 0.7,      # Tamaño de los números si se muestran
+             order = "hclust",      # Reordenar variables por clustering jerárquico para ver patrones
+             na.label = "NA",       # Etiqueta para NAs en la matriz
+             na.label.col = "grey"
+            )
+```
 
 ## 3.2 Estudio probabilístico
 
