@@ -508,12 +508,12 @@ server <- function(input, output) {
   })
   
   
-  output$summary_text <- renderPrint({  
-    req(data())
-    if (input$show_summary > 0) {   # Si haces click en el botón
-      estadisticas_numericas(data())    # Muestra el resumen de los datos
-    }
-  })
+  #output$summary_text <- renderPrint({  
+  #  req(data())
+  #  if (input$show_summary > 0) {   # Si haces click en el botón
+  #    estadisticas_numericas(data())    # Muestra el resumen de los datos
+  #  }
+  #})
 }
     
     
