@@ -3,8 +3,8 @@ title: "PEC_4"
 author: "Enrique Gonzalo Martín / Otelo Pons Alonso"
 date: "2025-05-31"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
   toc: true
   toc_depth: 3  
   number_sections: true
@@ -46,8 +46,17 @@ install_package("knitr")    # para la generación de tablas mas vistosas
 install_package("glue")     # para formatera texto interpolando variables
 install.package("ggplot")
 install.package("cowplot")
+install.package("corrplot")
 }
+
+# cargamos las librerias que vamos a utilizar
+library("knitr")    
+library("glue")     
+library("ggplot2")
+library("cowplot")
+library("corrplot")
 ```
+
 
 # Sección 2. Prospección y preparación de los datos
 
@@ -65,6 +74,11 @@ diabetes_df <- read.csv("data/diabetes.csv")
 str(diabetes_df)
 
 ```
+
+```{r}
+head(diabetes_df)
+```
+
 
 ### Análisis de variables numéricas
 
@@ -180,6 +194,7 @@ Después de hacer las transformaciones y la creación de nuevas variables veamos
 estadisticas_numericas(diabetes_df)
 ```
 
+
 ### Análisis de variables categoricas
 
 -   Cambiar algunas variables a tipo factor
@@ -191,6 +206,9 @@ diabetes_df[columnas_factorizables] <- lapply(
   diabetes_df[columnas_factorizables],
   as.factor)
 
+  # Eliminamos el nivel extra de Frame
+diabetes_df <- diabetes_df[diabetes_df$frame != "", ]  # Filtra filas con factor diferente de ""
+diabetes_df$frame <- droplevels(diabetes_df$frame)    # Elimina el nivel vacío de los factores
 
 
 str(diabetes_df[columnas_factorizables])
@@ -225,7 +243,10 @@ diabetes_df$hipertenso <- as.factor(ifelse(
 summary(diabetes_df[,c("diabetes","hipertenso")])
 ```
 
+
 # Sección 3. Análisis exploratorio de los datos
+
+## 3.1 Análisis descriptivo
 
 ```{r, fig.width=15, fig.height=9}
 diabetes_df_limpio <- na.omit(diabetes_df)
@@ -237,24 +258,25 @@ cor(columnas_numericas)
 head(diabetes_df_limpio)
 ```
 
-```{r}
-
-library(ggplot2)
-
-ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$stab.glu, y = diabetes_df_limpio$glyhb)) +
-  geom_point(aes(fill = diabetes_df_limpio$stab.glu)) +     # Definimos tipo de gráfico
-  xlab("glucosa") +     # Etiqueta eje X
-  ylab ("glicosilada") +    # Etiqueta eje Y
-  ggtitle ("Nivel de hemoglobina glicosilada según el valor de la glucosa") +    # Título gráfico
-  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5)   # Línea de regresión sin IC 
- 
- 
-
+```{r, fig.width=15, fig.height=9}
+matriz_correlacion <- cor(columnas_numericas, method = "pearson", use = "pairwise.complete.obs")
+corrplot(matriz_correlacion,
+             method = "circle",      # "circle", "square", "ellipse", "number", "shade", "color", "pie"
+             type = "upper",          # "full", "lower", "upper"
+             tl.col = "black",      # Color del texto de las etiquetas
+             tl.srt = 45,           # Rotación del texto de las etiquetas
+             addCoef.col =  NULL, # Añadir coeficientes si el método es 'number' o el tipo es 'full'
+             number.cex = 0.7,      # Tamaño de los números si se muestran
+             order = "hclust",      # Reordenar variables por clustering jerárquico para ver patrones
+             na.label = "NA",       # Etiqueta para NAs en la matriz
+             na.label.col = "grey"
+            )
 ```
 
-```{r, fig.width=15, fig.height=9}
-library(cowplot)
 
+
+
+```{r, fig.width=15, fig.height=9}
 grafico_1 <- ggplot(diabetes_df_limpio, aes (x = age, y = glyhb)) +
   geom_boxplot() +     # Definimos tipo de gráfico
   xlab("Edad") +     # Etiqueta eje X
@@ -303,18 +325,30 @@ grafico_4 <- ggplot(diabetes_df_limpio, aes (x = hipertenso, y = glyhb)) +
 plot_grid(grafico_1, grafico_2, grafico_3, grafico_4,  ncol = 2, nrow =2)
 ```
 
-Añadir 2 gráficos: boxplots
 
-¿Hacer ANOVA?
+
 
 ```{r}
 
 
 ```
 
-## 3.1 Análisis descriptivo
 
 ## 3.2 Estudio probabilístico
+
+
+```{r}
+ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$stab.glu, y = diabetes_df_limpio$glyhb)) +
+  geom_point(aes(fill = diabetes_df_limpio$stab.glu)) +     # Definimos tipo de gráfico
+  xlab("glucosa") +     # Etiqueta eje X
+  ylab ("glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Nivel de hemoglobina glicosilada según el valor de la glucosa") +    # Título gráfico
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5)   # Línea de regresión sin IC 
+ 
+```
+
+¿Hacer ANOVA?
+
 
 # Sección 4. Modelos de aprendizaje automático
 
@@ -323,6 +357,7 @@ Por ejemplo
 -   Regresión logística para intentar predecir diabetes.
 
 -   Análisis cluster
+
 
 # Sección 5. Visualización
 
