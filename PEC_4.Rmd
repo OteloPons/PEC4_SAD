@@ -22,11 +22,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Sección 1. Contexto y objetivo del estudio.
 
-Para realizar esta actividad hemos seleccionado el conjunto de datos "Diabetes data", publicado en la página <https://hbiostat.org/data/>. Nuestro propósito es examinar las relaciones estadísticas entre múltiples marcadores o parámetros biológicos, en una N de sujetos lo más grande posible. Tras analizar distintos conjuntos, decidimos emplear el de Diabetes porque se ajustaba a nuestras necesidades: múltiples variables que podemos representar y analizar en busca de correlaciones, y una N de observaciones amplia (403).
+Para realizar esta actividad hemos seleccionado el conjunto de datos "Diabetes data", cedidos por el Dr. Dr John Schorling de la Facultad de Medicina de la Universidad de Virgina y publicados en la página <https://hbiostat.org/data/>. Este conjunto de datos consta de 19 variables medidas para 403 sujetos, y su objetivo original era analizar la prevalencia de la obesidad, la diabetes y otros factores de riesgo cardiovascular en individuos afroamericanos de Virginia central.Las variables que contien son: ID del paciente, nivel de colesterol, nivel de glucosa estable en sangre en ayunas, nivel de HDL, relación entre colesterol total y colesterol HDL, el nivel de hemoglobina glicosilada, la ubicación geográfica del paciente, la edd, el sexo, la altura, el peso, la complexión, el diámetro de la cintura, el diámetro de la cadera, la tensión sistólica y diastólica medidas en 2 ocasiones y el tiempo transcurrido entre la última comida y el análisis. 
 
-Este conjunto de datos es muy completo y permite hacer un buen estudio estadístico enmarcado en el ámbito biológico. Contiene 403 observaciones y 19 variables: ID del paciente, nivel de colesterol, nivel de glucosa estable en sangre en ayunas, nivel de HDL, relación entre colesterol total y colesterol HDL, el nivel de hemoglobina glicosilada, la ubicación geográfica del paciente, la edd, el sexo, la altura, el peso, la complexión, el diámetro de la cintura, el diámetro de la cadera, la tensión sistólica y diastólica medidas en 2 ocasiones y el tiempo transcurrido entre la última comida y el análisis.
+Nuestro propósito de partida era examinar las relaciones estadísticas entre múltiples marcadores o parámetros biológicos, en una N de sujetos lo más grande posible. Tras analizar distintos conjuntos, decidimos emplear el de Diabetes porque contiene múltiples variables que podemos representar y analizar en busca de correlaciones, así como una N de observaciones amplia (403). En definitiva, es un conjunto muy completo y permite hacer un buen estudio estadístico enmarcado en el ámbito biológico. 
 
-Nuestra finalidad es encontrar marcadores en los pacientes que permitan realizar un diagnóstico temprano de la diabetes, o predecir qué pacientes son susceptibles de desarrollar diabetes en el futuro. Intentaremos crear un modelo para predecir la diabetes.
+Tras examinar cuidadosamente el conjunto de datos, nos propusimos usar la información contenida en él para buscar posibles marcadores que permitan realizar un diagnóstico temprano de la diabetes, o predecir qué pacientes son susceptibles de desarrollar diabetes en el futuro. Por ello, intentaremos, mediante estadística inferencial crear un modelo para predecir la diabetes.
+
 
 ## Inicialización entorno trabajo
 
@@ -150,6 +151,10 @@ diabetes_df$weight <- pounds_to_kilos(diabetes_df$weight)
 
 ```
 
+### Objetivos del estudio
+
+Nos hemos planteado las siguientes preguntas/objetivos a partir del conjunto de datos seleccionado:
+
 1)  En base al nivel de hemoglobina glicosilada, queremos saber, basándonos en la literatura, si el paciente puede ser clasificado como diabético. Hemos visto que normalmente se considera que una persona es diabética si presenta un nivel de GlyHb del 6,5% o más.
 
 2)  En base a la tensión arterial, investigaremos si el paciente es hiper- o hipotenso. Se considera hipertenso si la PS es igual/mayor de 140 mmHg y la PD es igual/mayor de 90 mmHg. Se considera hipotenso si la PS es menor de 90 y la PD menor de 60.
@@ -157,6 +162,8 @@ diabetes_df$weight <- pounds_to_kilos(diabetes_df$weight)
 3)  Estudiaremos la relación cintura/cadera para ver si el paciente es obeso y si la obesidad/no obesidad afecta a la diabetes.
 
 4)  Estudiaremos el índice de masa corporal por la misma razón que el punto 3), para comparar ambos parámetro entre sí y con la presencia/ausencia de diabetes diagnosticada.
+
+
 
 ```{r}
 # indice de masa corporal
@@ -189,8 +196,8 @@ diabetes_df[columnas_factorizables] <- lapply(
 str(diabetes_df[columnas_factorizables])
 
   # Factorizamos la edad
-diabetes_df$age <- cut(diabetes_df$age,   # partimos la variable
-  breaks = seq(0, 100, by = 10),          # en intervalos de 10 años
+diabetes_df$age <- cut(diabetes_df$age,   # partimos la variable...
+  breaks = seq(0, 100, by = 10),          # ...en intervalos de 10 años
   right = FALSE,                 # intervalo cerrado a la izquierda [x,y)
   include.lowest = TRUE          # incluye el primer valor en el primer grupo
 )
@@ -270,51 +277,30 @@ grafico_2 <- ggplot(diabetes_df_limpio, aes (x = gender, y = glyhb)) +
     axis.title.y = element_text(margin = margin(r = 10))
   )
 
-# grafico_3 <- ggplot(diabetes_df_limpio, aes (x = bmi, y = glyhb)) +
-#   geom_point() +     # Definimos tipo de gráfico
-#   xlab("BMI") +     # Etiqueta eje X
-#   ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
-#   ggtitle ("Nivel de hemoglobina glicosilada según el bmi") +    # Título gráfico
-#  theme_classic() +
-#   theme(    
-#     axis.title.x = element_text(margin = margin(t = 10)),
-#     axis.title.y = element_text(margin = margin(r = 10))
-#   )
 
-# grafico_4 <- ggplot(diabetes_df_limpio, aes (x = cintura_cadera, y = glyhb)) +
-#   geom_point() +     # Definimos tipo de gráfico
-#   xlab("cintura/cadera") +     # Etiqueta eje X
-#   ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
-#   ggtitle ("Nivel de hemogl. glicosilada según índice cint/cad") +    # Título gráfico
-#  theme_classic() +
-#   theme(    
-#     axis.title.x = element_text(margin = margin(t = 10)),
-#     axis.title.y = element_text(margin = margin(r = 10))
-#   )
-
-grafico_5 <- ggplot(diabetes_df_limpio, aes (x = frame, y = glyhb)) +
+grafico_3 <- ggplot(diabetes_df_limpio, aes (x = frame, y = glyhb)) +
   geom_boxplot() +     # Definimos tipo de gráfico
   xlab("Complexión") +     # Etiqueta eje X
   ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
-  ggtitle ("Nivel de hemoglobina glicosilada según la edad") +    # Título gráfico
+  ggtitle ("Nivel de hemoglobina glicosilada según la complexión") +    # Título gráfico
  theme_classic() +
   theme(    
     axis.title.x = element_text(margin = margin(t = 15)),
     axis.title.y = element_text(margin = margin(r = 15))
   )
   
-grafico_6 <- ggplot(diabetes_df_limpio, aes (x = hipertenso, y = glyhb)) +
+grafico_4 <- ggplot(diabetes_df_limpio, aes (x = hipertenso, y = glyhb)) +
   geom_boxplot() +     # Definimos tipo de gráfico
   xlab("Hipertensión") +     # Etiqueta eje X
   ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
-  ggtitle ("Nivel de hemoglobina glicosilada según la edad") +    # Título gráfico
+  ggtitle ("Relación entre hemoglobina glicosilada y tensión arterial") +    # Título gráfico
  theme_classic() +
   theme(    
     axis.title.x = element_text(margin = margin(t = 15)),
     axis.title.y = element_text(margin = margin(r = 15))
   )
 
-plot_grid(grafico_1, grafico_2, grafico_5, grafico_6,  ncol = 2, nrow =2)
+plot_grid(grafico_1, grafico_2, grafico_3, grafico_4,  ncol = 2, nrow =2)
 ```
 
 Añadir 2 gráficos: boxplots
@@ -342,7 +328,7 @@ Por ejemplo
 
 ```{r}
   # Convertimos en .csv sin números de fila para cargarlo en Shiny
-write.csv(diabetes_df_ampl_2, "diabetes.csv", row.names = FALSE)
+write.csv(diabetes_df_limpio, "diabetes_limpio.csv", row.names = FALSE)
 ```
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
@@ -350,56 +336,61 @@ library(shiny)  # Cargamos el paquete shiny
 library(ggplot2)  # Cargamos el paquete ggplot2
 library(DT)
 
-  # Definimos la interfaz de usuario (UI) con la función fluidPage()
-ui <- fluidPage(
-  titlePanel(textOutput("titulo_archivo")),     # Título de la aplicación dependiente del archivo cargado
+# Definimos la interfaz de usuario (UI) con la función fluidPage()
+ui <- fluidPage(titlePanel(textOutput("titulo_archivo")),
+                # Título de la aplicación dependiente del archivo cargado
+                
+                # Entrada de datos de tipo numérico con numericInput()
+                # Entrada de datos categóricos con selectInput()
+                sidebarLayout(
+                  sidebarPanel(
+                    fileInput("file", "Especifica el conjunto de datos a mostrar"),
+                    
+                    uiOutput("x_selector"),
+                    uiOutput("y_selector"),
+                    
+                    # Definimos los selectores de variables x e y
+                    
+                    selectInput(
+                      "plot_type",
+                      "Selecciona el tipo de gráfico:",
+                      choices = c(
+                        "Gráfico de dispersión" = "scatter",
+                        "Gráfico de barras" = "bars",
+                        "Histograma" = "histogram"
+                      )
+                    ),
+                    actionButton("show_summary", "Resumen parámetros estadísticos"),
+                    hr()
+                  ),
+                  
+                  # Resultados panel principal
+                  mainPanel(plotOutput("plot"), DTOutput("tabla"), )
+                ))
 
-  # Entrada de datos de tipo numérico con numericInput()
-  # Entrada de datos categóricos con selectInput()
-  sidebarLayout(
-    sidebarPanel(
-      fileInput("file", "Especifica el conjunto de datos a mostrar"),
-      
-      uiOutput("x_selector"),
-      uiOutput("y_selector"),
 
-      # Definimos los selectores de variables x e y
-
-      selectInput("plot_type", "Selecciona el tipo de gráfico:", 
-                  choices = c("Gráfico de dispersión" = "scatter", "Gráfico de barras" = "bars", "Histograma" = "histogram")),
-      actionButton("show_summary", "Resumen parámetros estadísticos"),
-      hr()
-    ),
-    
-        # Resultados panel principal
-    mainPanel(
-      plotOutput("plot"),
-      DTOutput("tabla"),
-
-    )
-  )
-) 
-
-
-  # Definimos los parámetros del servidor
+# Definimos los parámetros del servidor
 server <- function(input, output) {
-  
-  data <- reactive({    
+  data <- reactive({
     req(input$file)
     read.csv(input$file$datapath, row.names = NULL)   # Los datos usados dependen del archivo seleccionado
   })
   
-    # Definimos título dependiente del archivo
+  # Definimos título dependiente del archivo
   output$titulo_archivo <- renderText({
-  if (is.null(input$file)) {    # Si no se ha cargado ningún archivo
-    "Cargue un archivo"
-  } else {
-    paste(input$file$name)   # Usar el nombre del archivo cargado
-  }
-})
+    if (is.null(input$file)) {
+      # Si no se ha cargado ningún archivo
+      "Cargue un archivo"
+    } else {
+      nombre_limpio <- tools::file_path_sans_ext(input$file$name)
+      nombre_capitalizado <- paste0(toupper(substring(nombre_limpio, 1, 1)), substring(nombre_limpio, 2))
+      
+      paste(nombre_capitalizado)
+    }
+  })
   
   # Detecta las variables del archivo cargado
-    output$x_selector <- renderUI({
+  output$x_selector <- renderUI({
     req(data())
     selectInput("x", "Selecciona la variable X:", choices = names(data()))
   })
@@ -410,44 +401,62 @@ server <- function(input, output) {
   })
   
   
-    # Creamos los gráfico de salida a elegir
+  # Creamos los gráfico de salida a elegir
   output$plot <- renderPlot({
     req(data())   # Te pide que selecciones las variables
     x <- input$x   # Valores X elegidos
     y <- input$y    # Valores Y elegidos
     plot_type <- input$plot_type   # El gráfico depende de la selección
     
-    if (plot_type == "scatter") {     # Gráfico de dispersión
-      ggplot(data(), aes_string(x, y)) +
-        geom_point() +
-        xlab(x) +
-        ylab(y) +
-        ggtitle("Gráfico de Dispersión")
+    if (plot_type == "histogram") {
+      req(input$x)
+    } else {
+      # Para scatter y barras req(x,y)
+      req(input$x, input$y)
+    }
+    
+    tryCatch({
+      df <- data()
+      x <- input$x
+      y <- input$y
       
-    } else if (plot_type == "bars") {    # Gráfico de barras
-      ggplot(data(), aes_string(x, y)) +
-        geom_bar(stat="identity") +
-        xlab(x) +
-        ylab(y) +
-        ggtitle("Gráfico de Barras")
-       
-    } else if (plot_type == "histogram") {   # Histograma
-      if (is.numeric(data()[[x]])) {         # Si la variable es numérica...
-        ggplot(data(), aes_string(x)) +      # ...genera el gráfico
-          geom_histogram(fill = "blue", color = "black", bins = 30) +
-         xlab(x) +
-          ylab("Frecuencia") +
-        ggtitle("Histograma")
-      } else {             # Si la variable no es numérica...
-        plot.new()         # Crea un nuevo marco donde mostrar contenido
-        text(0.5, 0.5, 
-             "No se puede hacer histograma con variable categórica", 
-             cex = 1.2)    # Avisa de que se está usando mal el histograma
-  }
-}
+      if (plot_type == "scatter") {
+        ggplot(df, aes_string(x, y)) +
+          geom_point() +
+          xlab(x) + ylab(y) +
+          ggtitle("Gráfico de Dispersión")
+        
+      } else if (plot_type == "bars") {
+        ggplot(df, aes_string(x, y)) +
+          geom_bar(stat = "identity") +
+          xlab(x) + ylab(y) +
+          ggtitle("Gráfico de Barras")
+        
+      } else if (plot_type == "histogram") {
+        if (is.numeric(df[[x]])) {
+          ggplot(df, aes_string(x)) +
+            geom_histogram(
+              fill = "blue",
+              color = "black",
+              bins = 30
+            ) +
+            xlab(x) + ylab("Frecuencia") +
+            ggtitle("Histograma")
+        } else {
+          plot.new()
+          text(0.5,
+               0.5,
+               "No se puede hacer histograma con variable categórica",
+               cex = 1.2)
+        }
+      }
+    }, error = function(e) {
+      plot.new()
+      text(0.5, 0.5, paste("Error en el gráfico:", e$message), cex = 1)
+    })
   })
   
-    # Salida de texto
+  # Salida de texto
   
   # Creamos una función para que la podamos reutilizar
   estadisticos_columna <- function(col) {
@@ -455,68 +464,65 @@ server <- function(input, output) {
       # Si es numérica, devolver resumen estadístico básico y el porcentaje de nulos
       # Para hacer el porcentaje basta con hacer la media del numero de nulos (nºnulos / nº valores de la columna)
       # Para los estadisticos eliminamos los valores faltantes con na.rm=TRUE
-      return(c(
-        Porcentaje_Nulos = round(mean(is.na(col)) * 100, 2),
-        Min = round(min(col, na.rm = TRUE),2),
-        Q1 = round(quantile(col, 0.25, na.rm = TRUE),2),
-        Median = round(median(col, na.rm = TRUE),2),
-        Mean = round(mean(col, na.rm = TRUE),2),
-        Sd = round(sd(col, na.rm = TRUE),2),
-        Q3 = round(quantile(col, 0.75, na.rm = TRUE),2),
-        Max = round(max(col, na.rm = TRUE),2)
-      ))
-    } 
+      return(
+        c(
+          Porcentaje_Nulos = round(mean(is.na(col)) * 100, 2),
+          Min = round(min(col, na.rm = TRUE), 2),
+          Q1 = round(quantile(col, 0.25, na.rm = TRUE), 2),
+          Median = round(median(col, na.rm = TRUE), 2),
+          Mean = round(mean(col, na.rm = TRUE), 2),
+          Sd = round(sd(col, na.rm = TRUE), 2),
+          Q3 = round(quantile(col, 0.75, na.rm = TRUE), 2),
+          Max = round(max(col, na.rm = TRUE), 2)
+        )
+      )
+    }
   }
   
   estadisticas_numericas <- function(df) {
-    
     # Escogemos solo las variables numéricas
-    columnas_numericas <- df[,sapply(df, function(x) is.numeric(x))]
+    columnas_numericas <- df[, sapply(df, function(x)
+      is.numeric(x))]
     
     # Aplicamos la funcion de estadísticos para cada variable
-    estadisticos <- lapply(columnas_numericas,estadisticos_columna)
+    estadisticos <- lapply(columnas_numericas, estadisticos_columna)
     
     # Convertir lista de vectores a data.frame
     tabla_resumen <- do.call(rbind, estadisticos)
     
     # Cramos el dataframe final añadiendo el nombre de las variables como primera columna
-    tabla_resumen <- data.frame(
-      Variable = rownames(tabla_resumen),
-      tabla_resumen, row.names = NULL)
+    tabla_resumen <- data.frame(Variable = rownames(tabla_resumen),
+                                tabla_resumen,
+                                row.names = NULL)
     
     return(tabla_resumen)
-  
+    
   }
-
+  
   output$tabla <- renderDT({
     # accedemos al valor actual de los datos provenientes del archivo
     req(data())
-    if (input$show_summary > 0) {   # Si haces click en el botón
+    if (input$show_summary > 0) {
+      # Si haces click en el botón
       df <- estadisticas_numericas(data())    # Muestra el resumen de los datos
-    
-    
-    # En caso de que tengamos datos montamos la tabla
-    datatable(df, 
-              options = list(
-                pageLength = 16, # Filas por página
-                scrollX = TRUE,  # Scroll horizontal si hay muchas columnas
-                searching = FALSE # Habilitar búsqueda
-              ),
-              rownames = FALSE # No mostrar nombres de fila por defecto de R
-    )
+      
+      
+      # En caso de que tengamos datos montamos la tabla
+      datatable(
+        df,
+        options = list(
+          pageLength = 16,
+          # Filas por página
+          scrollX = TRUE,
+          # Scroll horizontal si hay muchas columnas
+          searching = FALSE # Habilitar búsqueda
+        ),
+        rownames = FALSE # No mostrar nombres de fila por defecto de R
+      )
     }
   })
-  
-  
-  #output$summary_text <- renderPrint({  
-  #  req(data())
-  #  if (input$show_summary > 0) {   # Si haces click en el botón
-  #    estadisticas_numericas(data())    # Muestra el resumen de los datos
-  #  }
-  #})
 }
-    
-    
+
 
 # Creamos la aplicación Shiny
 shinyApp(ui = ui, server = server)
