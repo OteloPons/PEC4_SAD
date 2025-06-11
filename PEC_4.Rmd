@@ -3,8 +3,8 @@ title: "PEC_4"
 author: "Enrique Gonzalo Martín / Otelo Pons Alonso"
 date: "2025-05-31"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
   toc: true
   toc_depth: 3  
   number_sections: true
@@ -47,8 +47,11 @@ install_package("glue")     # para formatear texto interpolando variables
 install_package("ggplot")
 install_package("cowplot")
 install_package("corrplot")
-install_package("tidyverse")
-install_package("ISLR")
+install_package("tidyverse")  # para la regresión logística
+install_package("ISLR")  # para la regresión logística
+install_package("ggeffects")  # para la regresión logística múltiple
+install_package("caret")
+install_package("pROC")  # para la curva ROC
 }
 
 # cargamos las librerias que vamos a utilizar
@@ -57,8 +60,12 @@ library("glue")
 library("ggplot2")
 library("cowplot")
 library("corrplot")
-library("tidyverse")
-library("ISLR")
+library("tidyverse")  # para la regresión logística
+library("ISLR")  # para la regresión logística
+library("pROC")
+library("ggeffects")  # para la regresión logística múltiple
+library("caret")
+library("pROC")   # para la curva ROC
 ```
 
 
@@ -74,12 +81,13 @@ Ahora, observaremos el contenido y la estructura del conjunto de datos, las vari
 
 ```{r}
 diabetes_df <- read.csv("data/diabetes.csv")
-#diabetes_df <- read.csv("~/4. Máster Bioinformática/Asignaturas/24_25_2_Software para el Análisis de Datos/Tema 4/PEC4_SAD/data/diabetes.csv")
+
 str(diabetes_df)
 
 ```
 
 ```{r}
+  # Comprobamos las primeras entradas del dataset
 head(diabetes_df)
 ```
 
@@ -352,7 +360,7 @@ plot_grid(grafico_1, grafico_2, grafico_3, grafico_4,grafico_5,grafico_6,  ncol 
 
 
 
-```{r, fig.width=15, fig.height=6}
+```{r, fig.width=15, fig.height=12}
 grafico_7 <- ggplot(diabetes_df_limpio, aes (x = WHR, y = glyhb)) +
   geom_point() +     # Definimos tipo de gráfico
   xlab("WHR") +     # Etiqueta eje X
@@ -375,7 +383,18 @@ grafico_8 <- ggplot(diabetes_df_limpio, aes (x = BMI, y = hipertenso)) +
     axis.title.y = element_text(margin = margin(r = 15))
   )
 
-plot_grid(grafico_7, grafico_8,  ncol = 2, nrow =1)
+grafico_9<- ggplot(diabetes_df_limpio, aes (x = diabetes, y = ratio)) +
+  geom_boxplot() +     # Definimos tipo de gráfico
+  xlab("Diabetes") +     # Etiqueta eje X
+  ylab ("Ratio") +    # Etiqueta eje Y
+  ggtitle ("Relación entre Diabetes y ratio") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15))
+  )
+
+plot_grid(grafico_7, grafico_8, grafico_9, ncol = 2, nrow =2)
 ```
 
 
@@ -416,8 +435,10 @@ paste("Probabilidad de que haya al menos 300 hipertensos diabéticos:", (1 - pbi
 
 ## Muestreo
 
+Aquí lo que pruebo es si podemos sacar una muestra al azar de nuestro grupo de pacientes y comprobar si una variable se distribuye de manera normal en ellos. Primero se hace el muestreo y luego verificamos si la distribución es normal, tanto visualmente como con un test estadístico (Shapiro).
+
 ```{r}
-# Sacamos una muestra de nuestros pacientes y estudiamos una variable
+  # Sacamos una muestra de nuestros pacientes y estudiamos una variable
 set.seed(123)
 n <- 100
 muestra_diabetes <- sample(1:nrow(diabetes_df_limpio), n, replace = FALSE)
@@ -426,10 +447,10 @@ head(observaciones_muestreadas)
 ```
 
 ```{r}
-# Comprobación visual de normalidad
+  # Comprobación visual de normalidad
 plot(density(observaciones_muestreadas$glyhb),
-     main = "Gráfico de Densidad de tu_variable",
-     xlab = "Valores de tu_variable")
+     main = "Gráfico de densidad de Hemoglobina glicosilada",
+     xlab = "GlyHb")
 ```
 
 
@@ -449,6 +470,25 @@ Por ejemplo
 -   Análisis cluster
 
 
+## Comprobaciones resultados diabetes vs ratio
+
+```{r}
+  # Comprobamos la normalidad de los datos de ratio de pacientes con y sin diabetes
+shapiro.test(diabetes_df_limpio$ratio[diabetes_df_limpio$diabetes == "SI"])
+shapiro.test(diabetes_df_limpio$ratio[diabetes_df_limpio$diabetes == "NO"])
+```
+Como p<0.05, no podemos asumir que son datos normales. Hay que usar un test no paramétrico como Wilcoxon o Krustal-Wallis. Al tener sólo 2 grupos, empleamos Wilcoxon.
+
+```{r}
+wilcox.test(ratio ~ diabetes, data = diabetes_df_limpio)
+```
+
+Dado que el p-value es mucho menor de 0.05, podemos asumir que ambos grupos son diferentes. ****
+
+
+## Regresión linal simple
+
+Relación entre glyhb y glucosa
 ```{r}
 ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$stab.glu, y = diabetes_df_limpio$glyhb)) +
   geom_point(aes(fill = diabetes_df_limpio$stab.glu)) +     # Definimos tipo de gráfico
@@ -459,7 +499,20 @@ ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$stab.glu, y = diabetes_df
  
 ```
 
-## Regresión múltiple para ver determinación de la diabetes
+Relación entre glyhb y ratio
+```{r}
+ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$ratio, y = diabetes_df_limpio$glyhb)) +
+  geom_point(aes(fill = diabetes_df_limpio$ratio)) +     # Definimos tipo de gráfico
+  xlab("ratio") +     # Etiqueta eje X
+  ylab ("glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Nivel de hemoglobina glicosilada según el valor de ratio") +    # Título gráfico
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5)   # Línea de regresión sin IC 
+ 
+```
+
+
+
+## Regresión lineal múltiple para ver determinación de la diabetes
 
 ```{r}
 cor(columnas_numericas)
@@ -467,6 +520,7 @@ cor(columnas_numericas)
 
 
 ```{r}
+  
 mrm_diabetes <- lm(columnas_numericas$glyhb ~ columnas_numericas$stab.glu + columnas_numericas$id + columnas_numericas$chol + columnas_numericas$hdl + columnas_numericas$ratio + columnas_numericas$bp.1s + columnas_numericas$bp.1d + columnas_numericas$BMI + columnas_numericas$WHR)
 
 summary(mrm_diabetes)
@@ -474,11 +528,15 @@ summary(mrm_diabetes)
 Buscamos los predictores óptimos:
 
 ```{r}
+  # Con la función step() buscamos los mejores predictores para nuestra variable
 step(object=mrm_diabetes,direction ="both", trace=1)
 ```
+
+
 El mejor conjunto de predictores es:
 
 ```{r}
+  # Salida de la función step(): mejor combinación de variables independientes
 best_mrm_diabetes <- lm(formula = columnas_numericas$glyhb ~ columnas_numericas$stab.glu + 
     columnas_numericas$id + columnas_numericas$hdl + columnas_numericas$ratio)
 
@@ -488,13 +546,14 @@ summary(best_mrm_diabetes)
 ## Prueba de un Análisis de Componentes Principales
 
 ```{r}
-estandarizar_datos_diabetic <- scale(columnas_numericas)
-head(estandarizar_datos_diabetic)
+  # Estandarizamos los datos para que se ajusten a la distribución Z
+estandarizado_diabetes <- scale(columnas_numericas)
+head(estandarizado_diabetes)
 ```
 
 ```{r}
   # Aplicamos PCA
-pca_resultado <- prcomp(estandarizar_datos_diabetic, center = TRUE, scale =
+pca_resultado <- prcomp(estandarizado_diabetes, center = TRUE, scale =
 TRUE)
 
   # Resumen de la varianza explicada por cada variable
@@ -512,15 +571,17 @@ barplot(pca_resultado$sdev[1:10]**2,
 ```
 
 ```{r}
+  # Comprobamos cuánto contribuye cada variable a distintos PC
 cargos <- pca_resultado$rotation
 cargos
 ```
 
 ## Agrupamiento no jerárquico con k means
 
+
 ```{r}
 # Aplicar k-means con k=3 (3 clústeres)
-k <- 7
+k <- 5
 set.seed(123) # Fijamos una semilla para reproducibilidad
 kmeans_resultado <- kmeans(columnas_numericas, centers = k)
 
@@ -545,94 +606,78 @@ No se puede separar en grupos usando "K-means"
 
 ## Regresión logística simple
 
-### Diabetes vs BMI
-```{r}
-datos <- diabetes_df_limpio
-
-  # Se recodifican los niveles No, Yes a 1 y 0
-datos <- diabetes_df_limpio %>%
-         select(diabetes, BMI) %>%
-         mutate(diabetes = recode(diabetes,
-                                 "NO"  = 0,
-                                 "SI" = 1))
-#head(datos)
-
-
-  # Ajuste de un modelo logístico.
-modelo_logistico <- glm(diabetes ~ BMI, data = datos, family = "binomial")
-
-  # Representación gráfica del modelo.
-ggplot(data = datos, aes(x = BMI, y = diabetes)) +
-  geom_point(aes(color = as.factor(diabetes)), shape = 1) +
-  stat_function(fun = function(x){predict(modelo_logistico,
-                                          newdata = data.frame(BMI = x),
-                                          type = "response")}) +
-  theme_bw() +
-  labs(title = "Regresión logística",
-       y = "Probabilidad diabetes") +
-  theme(legend.position = "none")
-```
-
-### Diabetes vs WHR
-```{r}
-datos <- diabetes_df_limpio
-
-  # Se recodifican los niveles No, Yes a 1 y 0
-datos <- diabetes_df_limpio %>%
-         select(diabetes, WHR) %>%
-         mutate(diabetes = recode(diabetes,
-                                 "NO"  = 0,
-                                 "SI" = 1))
-
-
-# Ajuste de un modelo logístico.
-modelo_logistico <- glm(diabetes ~ WHR, data = datos, family = "binomial")
-
-# Representación gráfica del modelo.
-ggplot(data = datos, aes(x = WHR, y = diabetes)) +
-  geom_point(aes(color = as.factor(diabetes)), shape = 1) +
-  stat_function(fun = function(x){predict(modelo_logistico,
-                                          newdata = data.frame(WHR = x),
-                                          type = "response")}) +
-  theme_bw() +
-  labs(title = "Regresión logística",
-       y = "Probabilidad diabetes") +
-  theme(legend.position = "none")
-```
-
-
-### Diabetes vs Ratio
-```{r}
-datos <- diabetes_df_limpio
-
-  # Se recodifican los niveles No, Yes a 1 y 0
-datos <- diabetes_df_limpio %>%
-         select(diabetes, ratio) %>%
-         mutate(diabetes = recode(diabetes,
-                                 "NO"  = 0,
-                                 "SI" = 1))
-
-
-# Ajuste de un modelo logístico.
-modelo_logistico <- glm(diabetes ~ ratio, data = datos, family = "binomial")
-
-# Representación gráfica del modelo.
-ggplot(data = datos, aes(x = ratio, y = diabetes)) +
-  geom_point(aes(color = as.factor(diabetes)), shape = 1) +
-  stat_function(fun = function(x){predict(modelo_logistico,
-                                          newdata = data.frame(ratio = x),
-                                          type = "response")}) +
-  theme_bw() +
-  labs(title = "Regresión logística",
-       y = "Probabilidad diabetes") +
-  theme(legend.position = "none")
-```
-
-Este gráfico muestra que hay una relación positiva entre el ratio y la probabilidad de tener diabetes:
-a mayor ratio, mayor es la probabilidad estimada de diabetes.
 
 
 ## Regresión logística múltiple
+
+### El código que me ha pasado Otelo:
+
+```{r}
+set.seed(666)
+
+# sacamos los indices de las muestras que conformarán el dataset de training
+# para ello usamos la funcion createDataPartition de la libreria caret
+# https://www.rdocumentation.org/packages/caret/versions/7.0-1/topics/createDataPartition
+train_index <- createDataPartition(
+                    diabetes_df_limpio$diabetes,
+                    p = 0.7,
+                    list = FALSE,
+                    times = 1
+)
+
+
+training_set <- diabetes_df_limpio[train_index,]
+test_set <- diabetes_df_limpio[-train_index,]
+ 
+# validar que el conjunto de entrenamiento está balanceado
+# vemos si hay una distribución razonable de diabéticos y no diabéticos en cada
+# conjunto.
+print("training set")
+print(summary(training_set[,c("diabetes","hipertenso","frame")]))
+
+print("test set")
+print(summary(test_set[,c("diabetes","hipertenso","frame")]))
+
+
+# crear modelo con las variables que decidamos
+
+predictores <- c("hipertenso","frame","BMI","WHR","ratio","stab.glu","chol", "hdl","bp.1s","bp.1d")
+
+formula_str <- paste("diabetes","~", paste(predictores, collapse=" + "))
+formula <- as.formula(formula_str)
+
+cat("La formula que utilizaremos es: \n", formula_str)
+
+modelo_logistico <- glm(formula, data=training_set, family = "binomial")
+print(summary(modelo_logistico))
+```
+
+```{r}
+
+prob_test <- predict(modelo_logistico, newdata = test_set, type="response")
+
+clase_positiva <- levels(training_set$diabetes)[2] # diabéticos
+clase_negativa <- levels(training_set$diabetes)[1] # no diabéticos
+
+clase_predicha <- factor(
+                    ifelse(prob_test > 0.5 , clase_positiva, clase_negativa),
+                    levels = levels(test_set$diabetes))
+
+matriz_confusion <- confusionMatrix(data = clase_predicha,
+                                    reference = test_set$diabetes,
+                                    positive = clase_positiva)
+print(matriz_confusion)
+
+roc_test <- roc(response = test_set$diabetes,
+                predictor = prob_test,
+                levels = rev(levels(test_set$diabetes)))
+plot(roc_test, print.auc = TRUE)
+```
+
+
+## Aquí acaba
+
+
 
 ```{r}
 datos <- diabetes_df_limpio
@@ -649,7 +694,6 @@ modelo_logistico_multiple <- glm(
 )
 
   # Examinamos efecto del BMI
-library(ggeffects)
 pred <- ggpredict(modelo_logistico_multiple, terms = "BMI[all]")
 
   # Gráfico
