@@ -43,10 +43,12 @@ install_package <- function(package_name){
   }
 
 install_package("knitr")    # para la generación de tablas mas vistosas
-install_package("glue")     # para formatera texto interpolando variables
-install.package("ggplot")
-install.package("cowplot")
-install.package("corrplot")
+install_package("glue")     # para formatear texto interpolando variables
+install_package("ggplot")
+install_package("cowplot")
+install_package("corrplot")
+install_package("tidyverse")
+install_package("ISLR")
 }
 
 # cargamos las librerias que vamos a utilizar
@@ -55,6 +57,8 @@ library("glue")
 library("ggplot2")
 library("cowplot")
 library("corrplot")
+library("tidyverse")
+library("ISLR")
 ```
 
 
@@ -70,7 +74,7 @@ Ahora, observaremos el contenido y la estructura del conjunto de datos, las vari
 
 ```{r}
 diabetes_df <- read.csv("data/diabetes.csv")
-
+#diabetes_df <- read.csv("~/4. Máster Bioinformática/Asignaturas/24_25_2_Software para el Análisis de Datos/Tema 4/PEC4_SAD/data/diabetes.csv")
 str(diabetes_df)
 
 ```
@@ -124,7 +128,7 @@ knitr::kable(tabla_resumen,
              align = "lrrrrrrrr")
 }
 
-estadisticas_numericas(diabetes_df)
+estadisticas_numericas(diabetes_df[, -1])
 ```
 
 ### Transformaciones y creación de variables sintéticas
@@ -161,8 +165,6 @@ diabetes_df[variables_en_pulgadas] <- lapply(
 
 # peso de libras a kilos
 diabetes_df$weight <- pounds_to_kilos(diabetes_df$weight)
-
-
 ```
 
 ### Objetivos del estudio
@@ -191,7 +193,7 @@ Después de hacer las transformaciones y la creación de nuevas variables veamos
 
 ```{r}
 
-estadisticas_numericas(diabetes_df)
+estadisticas_numericas(diabetes_df[, -1])
 ```
 
 
@@ -276,7 +278,7 @@ corrplot(matriz_correlacion,
 
 
 
-```{r, fig.width=15, fig.height=9}
+```{r, fig.width=15, fig.height=15}
 grafico_1 <- ggplot(diabetes_df_limpio, aes (x = age, y = glyhb)) +
   geom_boxplot() +     # Definimos tipo de gráfico
   xlab("Edad") +     # Etiqueta eje X
@@ -322,19 +324,129 @@ grafico_4 <- ggplot(diabetes_df_limpio, aes (x = hipertenso, y = glyhb)) +
     axis.title.y = element_text(margin = margin(r = 15))
   )
 
-plot_grid(grafico_1, grafico_2, grafico_3, grafico_4,  ncol = 2, nrow =2)
+grafico_5 <- ggplot(diabetes_df_limpio, aes (x = BMI, y = glyhb)) +
+  geom_point() +     # Definimos tipo de gráfico
+  xlab("BMI") +     # Etiqueta eje X
+  ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Relación entre hemoglobina glicosilada y BMI") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15))
+  )
+
+grafico_6 <- ggplot(diabetes_df_limpio, aes (x = ratio, y = glyhb)) +
+  geom_point() +     # Definimos tipo de gráfico
+  xlab("ratio HDL/colesterol") +     # Etiqueta eje X
+  ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Relación entre hemoglobina glicosilada y ratio colesterol") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15))
+  )
+
+plot_grid(grafico_1, grafico_2, grafico_3, grafico_4,grafico_5,grafico_6,  ncol = 2, nrow =3)
 ```
 
 
 
 
-```{r}
+```{r, fig.width=15, fig.height=6}
+grafico_7 <- ggplot(diabetes_df_limpio, aes (x = WHR, y = glyhb)) +
+  geom_point() +     # Definimos tipo de gráfico
+  xlab("WHR") +     # Etiqueta eje X
+  ylab ("Hemoglobina glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Relación entre hemoglobina glicosilada y ratio cintura/cadera") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15))
+  )
 
+grafico_8 <- ggplot(diabetes_df_limpio, aes (x = BMI, y = hipertenso)) +
+  geom_point() +     # Definimos tipo de gráfico
+  xlab("WHR") +     # Etiqueta eje X
+  ylab ("Hipertensión") +    # Etiqueta eje Y
+  ggtitle ("Relación entre hemoglobina glicosilada y ratio cintura/cadera") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15))
+  )
 
+plot_grid(grafico_7, grafico_8,  ncol = 2, nrow =1)
 ```
 
 
 ## 3.2 Estudio probabilístico
+
+```{r}
+frec<- table(diabetes_df_limpio$diabetes)/length(diabetes_df_limpio$diabetes) #buscamos las frecuencias y generamos una tabla
+print(frec) #tabla de frecuencias
+
+frec<- table(diabetes_df_limpio$hipertenso)/length(diabetes_df_limpio$hipertenso) #buscamos las frecuencias y generamos una tabla
+print(frec) #tabla de frecuencias
+
+
+```
+
+En base a esto, si asumimos que éstas son las probabilidades para la ocurrencia de estos fenómenos podemos realizar algunas simulaciones probabilísticas de interés. Por ejemplo, si tuviéramos 1.000 pacientes, ¿cuál sería la probabilidad de que al menos 280 fueran diabéticos? ¿Y de que al menos 600 fueran hipertensos? Otro ejemplo: probabilidad de que al menos 300 tengan ambas patologías. Por último, la probabilidad de que menos del 30% sean diabéticos.
+
+```{r}
+
+  # Probabilidad de al menos 280 diabéticos
+n = 1000 # número de pacientes
+p1 = 0.25 # probabilidad de que el paciente sea diabético
+val1 = 279 # valor exacto
+paste("Probabilidad de que haya 280 o más diabéticos:", 1 - pbinom(val1, n, p1))
+
+# Probabilidad de que menos de 200 sean diabéticos
+paste("Probabilidad de que menos de 200 sean diabéticos:", pbinom (199, 1000, 0.25))
+
+  # Probabilidad de al menos 600 hipertensos
+n = 1000 #número de pacientes
+p2 = 0.61 #probabilidad de que el paciente sea hipertenso
+val2 = 599 #valor exacto
+paste("Probabilidad de que haya 600 o más hipertensos:", 1 - pbinom(val2, n, p2))
+
+  # Probabilidad de al menos 300 hipertensos diabéticos
+paste("Probabilidad de que haya al menos 300 hipertensos diabéticos:", (1 - pbinom(299, n, p1)) * (1 - pbinom(299, n, p2)))
+```
+
+## Muestreo
+
+```{r}
+# Sacamos una muestra de nuestros pacientes y estudiamos una variable
+set.seed(123)
+n <- 100
+muestra_diabetes <- sample(1:nrow(diabetes_df_limpio), n, replace = FALSE)
+observaciones_muestreadas <- diabetes_df_limpio[muestra_diabetes, ]
+head(observaciones_muestreadas)
+```
+
+```{r}
+# Comprobación visual de normalidad
+plot(density(observaciones_muestreadas$glyhb),
+     main = "Gráfico de Densidad de tu_variable",
+     xlab = "Valores de tu_variable")
+```
+
+
+```{r}
+# Comprobación estadística de normalidad
+shapiro.test(observaciones_muestreadas$glyhb)
+
+```
+
+
+# Sección 4. Modelos de aprendizaje automático
+
+Por ejemplo
+
+-   Regresión logística para intentar predecir diabetes.
+
+-   Análisis cluster
 
 
 ```{r}
@@ -347,16 +459,215 @@ ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$stab.glu, y = diabetes_df
  
 ```
 
-¿Hacer ANOVA?
+## Regresión múltiple para ver determinación de la diabetes
+
+```{r}
+cor(columnas_numericas)
+```
 
 
-# Sección 4. Modelos de aprendizaje automático
+```{r}
+mrm_diabetes <- lm(columnas_numericas$glyhb ~ columnas_numericas$stab.glu + columnas_numericas$id + columnas_numericas$chol + columnas_numericas$hdl + columnas_numericas$ratio + columnas_numericas$bp.1s + columnas_numericas$bp.1d + columnas_numericas$BMI + columnas_numericas$WHR)
 
-Por ejemplo
+summary(mrm_diabetes)
+```
+Buscamos los predictores óptimos:
 
--   Regresión logística para intentar predecir diabetes.
+```{r}
+step(object=mrm_diabetes,direction ="both", trace=1)
+```
+El mejor conjunto de predictores es:
 
--   Análisis cluster
+```{r}
+best_mrm_diabetes <- lm(formula = columnas_numericas$glyhb ~ columnas_numericas$stab.glu + 
+    columnas_numericas$id + columnas_numericas$hdl + columnas_numericas$ratio)
+
+summary(best_mrm_diabetes)
+```
+
+## Prueba de un Análisis de Componentes Principales
+
+```{r}
+estandarizar_datos_diabetic <- scale(columnas_numericas)
+head(estandarizar_datos_diabetic)
+```
+
+```{r}
+  # Aplicamos PCA
+pca_resultado <- prcomp(estandarizar_datos_diabetic, center = TRUE, scale =
+TRUE)
+
+  # Resumen de la varianza explicada por cada variable
+summary(pca_resultado)
+```
+
+```{r}
+#plot(pca_resultado)
+
+barplot(pca_resultado$sdev[1:10]**2,
+        names.arg = paste0("PC ", 1:10),
+        col = "grey",
+        main = "Resultados PCA Diabetes",
+        ylab = "Variances")
+```
+
+```{r}
+cargos <- pca_resultado$rotation
+cargos
+```
+
+## Agrupamiento no jerárquico con k means
+
+```{r}
+# Aplicar k-means con k=3 (3 clústeres)
+k <- 7
+set.seed(123) # Fijamos una semilla para reproducibilidad
+kmeans_resultado <- kmeans(columnas_numericas, centers = k)
+
+asignaciones <- kmeans_resultado$cluster
+centros <- kmeans_resultado$centers
+
+# Convertir los centros calculados en un data frame
+centros_df <- as.data.frame(centros)
+
+# Representamos un gráfico de dispersión de los datos con colores para los clústeres
+ggplot(columnas_numericas, aes(x = stab.glu, y = glyhb, color =
+factor(asignaciones))) +
+geom_point() +
+geom_point(data = centros_df, aes(x = stab.glu, y = glyhb),
+color = "black", size = 3, shape = 4) +
+labs(title = "Segmentación de Pacientes por K-Means")
+```
+
+No se puede separar en grupos usando "K-means"
+
+
+
+## Regresión logística simple
+
+### Diabetes vs BMI
+```{r}
+datos <- diabetes_df_limpio
+
+  # Se recodifican los niveles No, Yes a 1 y 0
+datos <- diabetes_df_limpio %>%
+         select(diabetes, BMI) %>%
+         mutate(diabetes = recode(diabetes,
+                                 "NO"  = 0,
+                                 "SI" = 1))
+#head(datos)
+
+
+  # Ajuste de un modelo logístico.
+modelo_logistico <- glm(diabetes ~ BMI, data = datos, family = "binomial")
+
+  # Representación gráfica del modelo.
+ggplot(data = datos, aes(x = BMI, y = diabetes)) +
+  geom_point(aes(color = as.factor(diabetes)), shape = 1) +
+  stat_function(fun = function(x){predict(modelo_logistico,
+                                          newdata = data.frame(BMI = x),
+                                          type = "response")}) +
+  theme_bw() +
+  labs(title = "Regresión logística",
+       y = "Probabilidad diabetes") +
+  theme(legend.position = "none")
+```
+
+### Diabetes vs WHR
+```{r}
+datos <- diabetes_df_limpio
+
+  # Se recodifican los niveles No, Yes a 1 y 0
+datos <- diabetes_df_limpio %>%
+         select(diabetes, WHR) %>%
+         mutate(diabetes = recode(diabetes,
+                                 "NO"  = 0,
+                                 "SI" = 1))
+
+
+# Ajuste de un modelo logístico.
+modelo_logistico <- glm(diabetes ~ WHR, data = datos, family = "binomial")
+
+# Representación gráfica del modelo.
+ggplot(data = datos, aes(x = WHR, y = diabetes)) +
+  geom_point(aes(color = as.factor(diabetes)), shape = 1) +
+  stat_function(fun = function(x){predict(modelo_logistico,
+                                          newdata = data.frame(WHR = x),
+                                          type = "response")}) +
+  theme_bw() +
+  labs(title = "Regresión logística",
+       y = "Probabilidad diabetes") +
+  theme(legend.position = "none")
+```
+
+
+### Diabetes vs Ratio
+```{r}
+datos <- diabetes_df_limpio
+
+  # Se recodifican los niveles No, Yes a 1 y 0
+datos <- diabetes_df_limpio %>%
+         select(diabetes, ratio) %>%
+         mutate(diabetes = recode(diabetes,
+                                 "NO"  = 0,
+                                 "SI" = 1))
+
+
+# Ajuste de un modelo logístico.
+modelo_logistico <- glm(diabetes ~ ratio, data = datos, family = "binomial")
+
+# Representación gráfica del modelo.
+ggplot(data = datos, aes(x = ratio, y = diabetes)) +
+  geom_point(aes(color = as.factor(diabetes)), shape = 1) +
+  stat_function(fun = function(x){predict(modelo_logistico,
+                                          newdata = data.frame(ratio = x),
+                                          type = "response")}) +
+  theme_bw() +
+  labs(title = "Regresión logística",
+       y = "Probabilidad diabetes") +
+  theme(legend.position = "none")
+```
+
+Este gráfico muestra que hay una relación positiva entre el ratio y la probabilidad de tener diabetes:
+a mayor ratio, mayor es la probabilidad estimada de diabetes.
+
+
+## Regresión logística múltiple
+
+```{r}
+datos <- diabetes_df_limpio
+
+  # Se recodifican los niveles No, Yes a 1 y 0
+datos <- diabetes_df_limpio %>% mutate(diabetes = recode(diabetes,
+                                 "NO"  = 0,
+                                 "SI" = 1))
+
+modelo_logistico_multiple <- glm(
+  diabetes ~ BMI + WHR + ratio + hipertenso,
+  data = datos,
+  family = binomial
+)
+
+  # Examinamos efecto del BMI
+library(ggeffects)
+pred <- ggpredict(modelo_logistico_multiple, terms = "BMI[all]")
+
+  # Gráfico
+plot(pred) + 
+  labs(title = "Efecto de BMI en la probabilidad de diabetes")
+```
+
+```{r}
+  # Examinamos efecto del ratio
+pred <- ggpredict(modelo_logistico_multiple, terms = "ratio[all]")
+
+  # Gráfico
+plot(pred) + 
+  labs(title = "Efecto de ratio en la probabilidad de diabetes")
+```
+
+
+¿Hacer ANOVA? Si sólo hay un grupo no tiene sentido.
 
 
 # Sección 5. Visualización
@@ -564,3 +875,10 @@ shinyApp(ui = ui, server = server)
 ```
 
 # Sección 6. Conclusiones
+
+En base a todo el estudio realizado en esta práctica, haga una valoración final. Para ello, puede basarse en las siguientes preguntas: "¿disponemos de conclusiones finales?", "¿sería necesario hacer un análisis más avanzado?", "¿faltan datos para obtener otro tipo de información como...?", “¿se puede utilizar alguna de las conclusiones para tomar algún tipo de decisiones?”.
+
+
+
+
+En otro orden de cuestiones, valorad también el trabajo en grupo y la calidad del informe de análisis de datos generado.
