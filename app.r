@@ -174,10 +174,9 @@ server <- function(input, output) {
     datatable(
       df,
       options = list(
-        #pageLength = 6,
-        # Filas por página
+        paging = FALSE,
+        scrollY = "450px",
         scrollX = TRUE,
-        scrollY = TRUE,
         searching = FALSE # Deshabilitar búsqueda
       ),
       rownames = FALSE # No mostrar nombres de fila por defecto de R
@@ -196,7 +195,6 @@ server <- function(input, output) {
       # Usamos tags$p() para crear párrafos. El texto es reactivo.
       tags$p(paste("Nº observaciones:", nrow(df))),
       tags$p(paste("Nº variables:",  ncol(df))),
-      #tags$p(paste("Mujeres:", mujeres))
     )
   })
   # Tabla estadísticos
@@ -213,11 +211,12 @@ server <- function(input, output) {
     datatable(
       df,
       options = list(
+        paging = FALSE,
+        scrollY = "450px", 
         #pageLength = 6,
         # Filas por página
         scrollX = TRUE,
         # Scroll horizontal si hay muchas columnas
-        scrollY = TRUE,
         searching = FALSE # Habilitar búsqueda
       ),
       rownames = FALSE # No mostrar nombres de fila por defecto de R
@@ -234,7 +233,7 @@ server <- function(input, output) {
     datos <- procesaDatosOriginales(df)
   
     variables_numericas <- names(datos[,sapply(datos, is.numeric)])
-
+    variables_numericas <- setdiff(variables_numericas, c("id"))
   
     tagList(
       selectInput("var_hist",
@@ -274,28 +273,34 @@ server <- function(input, output) {
      datos <- procesaDatosOriginales(data())
      
      variables_numericas <- names(datos[,sapply(datos, is.numeric)])
-     variables_categoricas <- names(datos[sapply(df, function(x) is.factor(x) || is.character(x))])
+     variables_categoricas <- names(datos[,sapply(datos, function(x) is.factor(x) || is.character(x))])
+     
+     variables_numericas <- setdiff(variables_numericas, c("id"))
+     color_choices <-  c("Ninguna" = "",variables_categoricas)
      
      tagList(
        fluidRow(
-         column(6,
+         column(4,
                 selectInput("var_scatter_x",
                             "Eje X:",
                             choices = variables_numericas,
                             selected = intersect("imc",
                                                  variables_numericas)[1])
                 ),
-         column(6, 
+         column(4, 
                 selectInput("var_scatter_y",
                             "Eje Y:",
                             choices = variables_numericas,
                             selected = intersect("hemoglobina_glicosilada",
-                                                 variables_numericas)[1]))),
-       if ("gender" %in% variables_categoricas)
-         checkboxInput("color_scatter",
-                       "Colorear por género",
-                       value = TRUE
+                                                 variables_numericas)[1])),
+         column(4, 
+                selectInput("color_scatter",
+                            "colorear por",
+                            choices = color_choices,
+                            selected = "Ninguna"
+                )
          )
+       )
      )
    })
    
@@ -307,17 +312,18 @@ server <- function(input, output) {
      
      p <- ggplot(datos,
                  aes_string(x = input$var_scatter_x, y = input$var_scatter_y)); 
-     if (!is.null(input$color_scatter) && input$color_scatter) { 
-       p <- p + geom_point(aes(color = gender), alpha = 0.7, size = 3)
+     
+     if (input$color_scatter != "" ) { 
+       p <- p + geom_point(aes_string(color = input$color_scatter), alpha = 0.7, size = 3)
      } 
      else { 
        p <- p + geom_point(alpha = 0.7, size = 3, color = "#007bc2")
-     };
+     }
+     
      p + labs(title = paste("Relación entre",
                             input$var_scatter_x, "y",
                             input$var_scatter_y)) +
-       theme_minimal(base_size = 14) + 
-       scale_color_brewer(palette = "Set1")
+       theme_minimal(base_size = 14) 
    })
    
   
@@ -333,6 +339,7 @@ server <- function(input, output) {
                                            function(x) is.factor(x) ||
                                                        is.character(x))
                                       ])
+     variables_numericas <- setdiff(variables_numericas, c("id"))
      
      tagList(
       fluidRow(
@@ -379,6 +386,7 @@ server <- function(input, output) {
      datos <- procesaDatosOriginales(data())
      
      variables_numericas <- names(datos[,sapply(datos, is.numeric)])
+     variables_numericas <- setdiff(variables_numericas, c("id"))
      
      df_numeric <- na.omit(datos[, variables_numericas]);
      cor_matrix <- cor(df_numeric);
