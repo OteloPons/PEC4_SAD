@@ -269,7 +269,10 @@ head(diabetes_df_limpio)
 ```
 
 ```{r, fig.width=15, fig.height=9}
-matriz_correlacion <- cor(columnas_numericas, method = "pearson", use = "pairwise.complete.obs")
+# creamos la matriz de correlación de las variables numéricas (quitando ID)
+matriz_correlacion <- cor(columnas_numericas[, -1], method = "pearson", use = "pairwise.complete.obs")
+
+# representamos los datos de manera más amigable empleando la función corrplot()
 corrplot(matriz_correlacion,
              method = "circle",      # "circle", "square", "ellipse", "number", "shade", "color", "pie"
              type = "upper",          # "full", "lower", "upper"
@@ -515,13 +518,13 @@ ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$ratio, y = diabetes_df_li
 ## Regresión lineal múltiple para ver determinación de la diabetes
 
 ```{r}
-cor(columnas_numericas)
+cor(columnas_numericas[,-1])
 ```
 
 
 ```{r}
   
-mrm_diabetes <- lm(columnas_numericas$glyhb ~ columnas_numericas$stab.glu + columnas_numericas$id + columnas_numericas$chol + columnas_numericas$hdl + columnas_numericas$ratio + columnas_numericas$bp.1s + columnas_numericas$bp.1d + columnas_numericas$BMI + columnas_numericas$WHR)
+mrm_diabetes <- lm(columnas_numericas$glyhb ~ columnas_numericas$stab.glu + columnas_numericas$chol + columnas_numericas$hdl + columnas_numericas$ratio + columnas_numericas$bp.1s + columnas_numericas$bp.1d + columnas_numericas$BMI + columnas_numericas$WHR)
 
 summary(mrm_diabetes)
 ```
@@ -537,8 +540,8 @@ El mejor conjunto de predictores es:
 
 ```{r}
   # Salida de la función step(): mejor combinación de variables independientes
-best_mrm_diabetes <- lm(formula = columnas_numericas$glyhb ~ columnas_numericas$stab.glu + 
-    columnas_numericas$id + columnas_numericas$hdl + columnas_numericas$ratio)
+best_mrm_diabetes <- lm(formula = columnas_numericas$glyhb ~ columnas_numericas$stab.glu 
+                        + columnas_numericas$hdl + columnas_numericas$ratio)
 
 summary(best_mrm_diabetes)
 ```
@@ -547,7 +550,7 @@ summary(best_mrm_diabetes)
 
 ```{r}
   # Estandarizamos los datos para que se ajusten a la distribución Z
-estandarizado_diabetes <- scale(columnas_numericas)
+estandarizado_diabetes <- scale(columnas_numericas[,-1])
 head(estandarizado_diabetes)
 ```
 
@@ -578,24 +581,27 @@ cargos
 
 ## Agrupamiento no jerárquico con k means
 
+Vamos a ver si el análisis agrupado de las distintas variables numéricas medidas permite agrupar los datos empleando un algoritmo de clasificación no supervisado: el k-means. Para ello primero hay que crear una semilla, y luego aplicar la función kmeans() a las variables a emplear, teniendo en cuenta el número de grupos esperados. Como aquí tenemos diabéticos y no diabéticos, vamos a probar con un k=2.
+
 
 ```{r}
-# Aplicar k-means con k=3 (3 clústeres)
-k <- 5
+# Aplicar k-means con k=2 (2 clústeres)
+k <- 2
 set.seed(123) # Fijamos una semilla para reproducibilidad
-kmeans_resultado <- kmeans(columnas_numericas, centers = k)
+kmeans_resultado <- kmeans(columnas_numericas[,-1], centers = k)
 
+# extraemos del resultado 2 datos importantes: las asignaciones y los centros
 asignaciones <- kmeans_resultado$cluster
 centros <- kmeans_resultado$centers
 
-# Convertir los centros calculados en un data frame
+# Convertimos los centros calculados en un data frame
 centros_df <- as.data.frame(centros)
 
 # Representamos un gráfico de dispersión de los datos con colores para los clústeres
-ggplot(columnas_numericas, aes(x = stab.glu, y = glyhb, color =
+ggplot(columnas_numericas, aes(x = hdl, y = ratio, color =
 factor(asignaciones))) +
 geom_point() +
-geom_point(data = centros_df, aes(x = stab.glu, y = glyhb),
+geom_point(data = centros_df, aes(x = hdl, y = ratio),
 color = "black", size = 3, shape = 4) +
 labs(title = "Segmentación de Pacientes por K-Means")
 ```
@@ -613,9 +619,10 @@ No se puede separar en grupos usando "K-means"
 ### El código que me ha pasado Otelo:
 
 ```{r}
+#fijamos la semilla
 set.seed(666)
 
-# sacamos los indices de las muestras que conformarán el dataset de training
+# extraemos los indices de las muestras que conformarán el dataset de training
 # para ello usamos la funcion createDataPartition de la libreria caret
 # https://www.rdocumentation.org/packages/caret/versions/7.0-1/topics/createDataPartition
 train_index <- createDataPartition(
@@ -625,11 +632,13 @@ train_index <- createDataPartition(
                     times = 1
 )
 
-
+# definimos el conjunto de entrenamiento
 training_set <- diabetes_df_limpio[train_index,]
+
+# definimos el conjunto de prueba (total - conjunto entrenamiento)
 test_set <- diabetes_df_limpio[-train_index,]
  
-# validar que el conjunto de entrenamiento está balanceado
+# validar que el conjunto de entrenamiento está equilibrado:
 # vemos si hay una distribución razonable de diabéticos y no diabéticos en cada
 # conjunto.
 print("training set")
@@ -639,8 +648,7 @@ print("test set")
 print(summary(test_set[,c("diabetes","hipertenso","frame")]))
 
 
-# crear modelo con las variables que decidamos
-
+# creamos el modelo con las variables que decidamos
 predictores <- c("hipertenso","frame","BMI","WHR","ratio","stab.glu","chol", "hdl","bp.1s","bp.1d")
 
 formula_str <- paste("diabetes","~", paste(predictores, collapse=" + "))
@@ -651,6 +659,26 @@ cat("La formula que utilizaremos es: \n", formula_str)
 modelo_logistico <- glm(formula, data=training_set, family = "binomial")
 print(summary(modelo_logistico))
 ```
+
+```{r}
+# Buscamos el ajuste óptimo con el método stepwise
+modelo_step <- step(modelo_logistico, direction = "both", trace = FALSE)
+summary(modelo_step)
+```
+
+```{r}
+# creamos el modelo sólo con las variables que step() nos dice
+predictores <- c("stab.glu","chol")
+
+formula_str <- paste("diabetes","~", paste(predictores, collapse=" + "))
+formula <- as.formula(formula_str)
+
+cat("La formula que utilizaremos es: \n", formula_str)
+
+modelo_logistico <- glm(formula, data=training_set, family = "binomial")
+print(summary(modelo_logistico))
+```
+
 
 ```{r}
 
@@ -667,49 +695,23 @@ matriz_confusion <- confusionMatrix(data = clase_predicha,
                                     reference = test_set$diabetes,
                                     positive = clase_positiva)
 print(matriz_confusion)
+```
+
+
+Empleamos una curva ROC para evaluar la precisión predictiva del modelo, fijándonos en el área bajo la curva (AUC).
+
+```{r}
 
 roc_test <- roc(response = test_set$diabetes,
                 predictor = prob_test,
-                levels = rev(levels(test_set$diabetes)))
+                levels = rev(levels(test_set$diabetes)), direction = ">")
 plot(roc_test, print.auc = TRUE)
 ```
 
 
+
+
 ## Aquí acaba
-
-
-
-```{r}
-datos <- diabetes_df_limpio
-
-  # Se recodifican los niveles No, Yes a 1 y 0
-datos <- diabetes_df_limpio %>% mutate(diabetes = recode(diabetes,
-                                 "NO"  = 0,
-                                 "SI" = 1))
-
-modelo_logistico_multiple <- glm(
-  diabetes ~ BMI + WHR + ratio + hipertenso,
-  data = datos,
-  family = binomial
-)
-
-  # Examinamos efecto del BMI
-pred <- ggpredict(modelo_logistico_multiple, terms = "BMI[all]")
-
-  # Gráfico
-plot(pred) + 
-  labs(title = "Efecto de BMI en la probabilidad de diabetes")
-```
-
-```{r}
-  # Examinamos efecto del ratio
-pred <- ggpredict(modelo_logistico_multiple, terms = "ratio[all]")
-
-  # Gráfico
-plot(pred) + 
-  labs(title = "Efecto de ratio en la probabilidad de diabetes")
-```
-
 
 ¿Hacer ANOVA? Si sólo hay un grupo no tiene sentido.
 
@@ -755,7 +757,7 @@ ui <- fluidPage(titlePanel(textOutput("titulo_archivo")),
                   ),
                   
                   # Resultados panel principal
-                  mainPanel(plotOutput("plot"), DTOutput("tabla"), )
+                  mainPanel(plotOutput("plot"), DTOutput("tabla"))
                 ))
 
 
@@ -920,9 +922,12 @@ shinyApp(ui = ui, server = server)
 
 # Sección 6. Conclusiones
 
-En base a todo el estudio realizado en esta práctica, haga una valoración final. Para ello, puede basarse en las siguientes preguntas: "¿disponemos de conclusiones finales?", "¿sería necesario hacer un análisis más avanzado?", "¿faltan datos para obtener otro tipo de información como...?", “¿se puede utilizar alguna de las conclusiones para tomar algún tipo de decisiones?”.
+## En base a todo el estudio realizado en esta práctica, haga una valoración final. Para ello, puede basarse en las siguientes preguntas: "¿disponemos de conclusiones finales?", "¿sería necesario hacer un análisis más avanzado?", "¿faltan datos para obtener otro tipo de información como...?", “¿se puede utilizar alguna de las conclusiones para tomar algún tipo de decisiones?”.
+
+En este estudio hemos realizado un análisis de las variables cuantitativas y cualitativas de un grupo amplio de pacientes (403), de los cuales un 
+15,6% eran diabéticos y un 23,3 % eran hipertensos. El diagnóstico de diabetes se establece habitualmente en la práctica clínica cuando la hemoglobina glicosilada del paciente iguala o supera el 6,5%. Nuestro propósito principal era comprobar si alguna de las otras variables medidas en estos pacientes presentaba una correlación sólida con respecto a la hemoglobina glicosilada, y, por tanto, si podía servir como marcador biologico para establecer el riesgo de diabetes antes de debutar con la enfermedad.
+
+Nuestro análisis estadístico descriptivo reveló cierto nivel de correlación entre los niveles de hemoglobina glicosilada y los de la variable... Por ello, decidimo realizar un análisis inferencial con el propósito de comprobar si un modelo basado en esa correlación podría ayudarnos a diagnosticar la diabetes empleando la variable... Hemos entrenado un modelo con machine learning, aportándole una parte de los datos de nuestro estudio (asegurándonos de que eran homogéneos y representativos del grupo de pacientes). A continuación, hemos probado este modelo con el resto de los datos disponibles. La capacidad del modelo para establecer el diagnóstico de diabetes correctamente usando la variable... como predictor fue del .....%. Este nivel de acierto supera al mero azar, aunque tiene un notable espacio de mejora. Por ello, consideramos que habría que explorar otro tipo de variables biológicas para ver si se puede encontrar un marcador más eficiente para predecir el debut de la diabetes y actuar de urgencia sobre el paciente con el fin de intentar evitarlo.
 
 
-
-
-En otro orden de cuestiones, valorad también el trabajo en grupo y la calidad del informe de análisis de datos generado.
+## En otro orden de cuestiones, valorad también el trabajo en grupo y la calidad del informe de análisis de datos generado.
