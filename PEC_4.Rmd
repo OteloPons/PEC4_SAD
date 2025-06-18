@@ -931,3 +931,14 @@ Nuestro análisis estadístico descriptivo reveló cierto nivel de correlación 
 
 
 ## En otro orden de cuestiones, valorad también el trabajo en grupo y la calidad del informe de análisis de datos generado.
+
+### Valoración Otelo
+
+Por mi parte solo puedo decir cosas positivas del trabajo que hemos hecho. El trato con Enrique ha sido muy bueno desde el primer dia que nos conocimos. Ha sido fácil el llegar a acuerdos con él, desde la elección del dataset a estudiar  pasando por todos los puntos del trabajo.
+
+Hemos hecho varias sesiones de trabajo en conjunto donde debatíamos los puntos que nos habiamos comprometido a estudiar previamente, llegando a un consenso en estos puntos y proponiendo hitos para la siguiente sesión.
+
+Aún con la diferencia de nuestros perfiles ( Enrique es bioquímico y yo ingeniero en informática) nos hemos sabido complementar bastante bien y creo que hemos aprendido el uno del otro.
+
+A nivel técnico nos hemos organizado compartiendo el código y documentos a través de github, cosa que al principio parecia muy buena idea, pero al intentar usarlo desde Rstudio nos hemos encontrado con muchos problemas y al final hemos tenido que hacer las sincronizaciones a mano.
+
