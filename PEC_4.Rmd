@@ -610,15 +610,19 @@ variables_pca <- c("chol", "stab.glu", "hdl", "ratio", "glyhb", "height",
               "weight", "bp.1s", "bp.1d", "time.ppn", "BMI", "WHR")
 
 # Quitamos filas con NA si hay
-datos_pca <- diabetes_df_limpio %>%
-  select(all_of(variables_pca)) %>%
+datos_completos <- diabetes_df_limpio %>%
+  select(all_of(variables_pca), diabetes) %>%
   na.omit()
 
-# Añadir la columna de clase al data frame
-datos_pca$diabetes <- na.omit(diabetes)
+# Quitamos la columna diabetes porque no es numérica
+datos_pca <- datos_completos %>%
+  select(-diabetes)
+  
+# Guardamos el factor diabetes separadamente
+clase_diabetes <- datos_completos$diabetes
 
-# Realizar el PCA (sin la variable 'diabetes')
-pca_resultado <- prcomp(datos_pca %>% select(-diabetes), scale. = TRUE)
+# Realizamos el PCA
+pca_resultado <- prcomp(datos_pca, scale. = TRUE)
 
 # Analizamos el resultado del PCA
 summary(pca_resultado)
@@ -633,10 +637,11 @@ barplot(pca_resultado$sdev[1:10]**2,
         ylab = "Variances")
 ```
 
-```{r}
+Para ver si el PCA permite segregar los pacientes con y sin diabetes, vamos a representar gráficamente ambos grupos en función de los primeros PC (1 y 2).
 
-# Visualizamos el resultado
-autoplot(pca_resultado, data = datos_pca, colour = 'diabetes') +
+```{r}
+# Visualizamos el resultado enfrentando PC1 y PC2
+autoplot(pca_resultado, data = datos_completos, colour = 'diabetes') +
   labs(title = "PCA de pacientes: Diabetes vs No Diabetes",
        x = "Componente Principal 1",
        y = "Componente Principal 2") +
@@ -769,7 +774,7 @@ matriz_confusion <- confusionMatrix(data = clase_predicha,
 print(matriz_confusion)
 ```
 
-Vemos que ahora tenemos una precisión y una snesibilidad mejores. Para ver si podemos aceptar el modelo, haremos nuevamente una curva ROC.
+Vemos que ahora tenemos una precisión y una sensibilidad mejores. Para ver si podemos aceptar el modelo, haremos nuevamente una curva ROC.
 
 ```{r}
 
