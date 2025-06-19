@@ -1,5 +1,5 @@
 ---
-title: "PEC_4"
+title: "PEC 4 - Software para el Análisis de Datos"
 author: "Enrique Gonzalo Martín / Otelo Pons Alonso"
 date: "2025-05-31"
 output:
@@ -30,7 +30,9 @@ Tras examinar cuidadosamente el conjunto de datos, nos propusimos usar la inform
 
 ## Inicialización entorno trabajo
 
-```{r, echo=FALSE, warning=FALSE}
+Definimos entorno de trabajo e instalamos/cargamos bibliotecas necesarias
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
 # definimos y establecemos el directorio de trabajo 
 directorio_trabajo <- paste0(getwd(), ' ')
 setwd(directorio_trabajo)  
@@ -53,7 +55,7 @@ install_package("caret")         # para crear y entrenar modelos predictivos
 install_package("pROC")          # para la curva ROC
 install_package("dplyr")         # manipulación flexible de datos
 install_package("ggfortify")     # para repreentar gráficamente los resultados del PCA
-install_package("ggpubr")
+install_package("ggpubr")        # para mostrar resultados de comparación en gráficos
 }
 
 # cargamos las librerias que vamos a utilizar
@@ -69,7 +71,7 @@ library("caret")                 # para crear y entrenar modelos predictivos
 library("pROC")                  # para la curva ROC
 library("dplyr")                 # manipulación flexible de datos
 library("ggfortify")             # para repreentar gráficamente los resultados del PCA
-library("ggpubr")
+library("ggpubr")                # para mostrar resultados de comparación en gráficos
 ```
 
 
@@ -78,6 +80,8 @@ library("ggpubr")
 Ahora, observaremos el contenido y la estructura del conjunto de datos, las variables presentes y su resumen estadístico, empleando las distintas funciones que hemos ido estudiando. Además, comprobaremos si contiene NAs y, en caso afirmativo, cuántos de ellos hay en cada columna.
 
 ## Descripción del conjunto de datos
+
+Mostramos una imagen del repositorio web del que obtuvimos los datos, en la cual se puede ver una explicación del dataset con sus observaciones y variables.
 
 ![](dataframe_diabetes.png){width="620"}
 
@@ -379,32 +383,28 @@ grafico_5 <- ggplot(diabetes_df_limpio, aes (x = diabetes, y = ratio)) +
 plot_grid(grafico_1, grafico_2, grafico_3, grafico_4, grafico_5,  ncol = 2, nrow =3)
 ```
 
-Como podría haber una diferencia significativa entre los 2 grupos en el último gráfico, vamos 
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-grafico_5 <- ggplot(diabetes_df_limpio, aes (x = diabetes, y = ratio)) +
-  geom_boxplot() +     # Definimos tipo de gráfico
+Como podría haber una diferencia significativa entre los 2 grupos en el último gráfico, vamos a estudiarlo más detalladamente, añadiendo un test de Wilcoxon-Silk (no paramétrico) para comparar ambos grupos de valores. Mostraremos el resultado en el propio gráfico, empleando la función stat_compare_means(), que nos permite generar los asteriscos en función del nivel de significación.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=8, fig.height=6}
+grafico_5 <- ggplot(diabetes_df_limpio, aes (x = diabetes, y = ratio, fill = diabetes)) +
+  geom_boxplot() +       # Definimos tipo de gráfico
   xlab("Diabetes") +     # Etiqueta eje X
-  ylab ("Ratio") +    # Etiqueta eje Y
-  ggtitle ("Comparación ratio HDL/colesterol total") +    # Título gráfico
- theme_classic() +
-  theme(    
-    axis.title.x = element_text(margin = margin(t = 15)),
-    axis.title.y = element_text(margin = margin(r = 15))
-  ) + 
-  scale_fill_brewer(palette = "Set1")
+  ylab ("Ratio HDL/colesterol total") +       # Etiqueta eje Y
+  ggtitle ("Comparación ratio HDL/colesterol total en pacientes diabéticos y no diabéticos") +         # Título gráfico
+ theme_classic()
 
-# Añadir la comparación de medianas y las estrellas de significancia
+# Añadir la comparación de medianas y las estrellas de significación
 grafico_estad <- grafico_5 + stat_compare_means(
-  method = "wilcox.test",         # empleamos el test de Wilcoxon-Silk
-  comparisons = list(c("NO", "SI")),
-  label = "p.signif"              # Muestra las estrellas de significancia (p-valor)
+  method = "wilcox.test",                   # empleamos el test de Wilcoxon-Silk
+  comparisons = list(c("NO", "SI")),        # comparamos los 2 grupos
+  label = "p.signif"                        # mostramos las estrellas de significación (valor p)
 )
 
 grafico_estad
 ```
 
-
+Como podemos observar, sí hay diferencias significativas entre ambos grupos para la variable "ratio HDL/colesterol total". El valor de p es menor de 0.0001, ya que el test de Wilcoxon-Silk arroja 4 asteriscos. Esto sugiere que esta variable podría ser útil en los pasos posteriores de nuestro estudio, donde buscaremos discriminar entre pacientes diabéticos y no diabéticos.
 
 
 2) Gráficos de dispersión
@@ -474,6 +474,8 @@ grafico_11 <- ggplot(diabetes_df_limpio, aes (x = ratio, y = glyhb)) +
 # agrupamos los gráficos en la misma figura
 plot_grid(grafico_7, grafico_8, grafico_9, grafico_10, grafico_11, ncol = 2, nrow = 3)
 ```
+
+Las meras relaciones entre variables numéricas parecen, en principio, menos informativas en este caso.
 
 
 ## 3.2 Estudio probabilístico
@@ -903,10 +905,6 @@ Hemos mejorado la capacidad del modelo para clasificar diabéticos, que es nuest
 
 Para facilitar la visualización de los datos, así como de las herramientas estadísticas empleadas, hemos programado una aplicación Shiny. En ella, mostramos los principales análisis realziados en este estudio: resumen de datos, estadística descriptiva y estadística predictiva. Podemos visualizar las características de los datos y realizar diferentes representaciones gráficas escogiendo las variables. En la parte correspondiente al modelo de regresión logística, podemos seleccionar el tamaño de los conjuntos de entrenamiento y de prueba y las variables empleadas para la predicción, así como representar la curva ROC y ver su principal parámetro: el área bajo la curva (AUC), indicador de la capacidad predictiva del modelo.
 
-```{r}
-  # Convertimos en .csv sin números de fila para cargarlo en Shiny
-write.csv(diabetes_df_limpio, "diabetes_limpio.csv", row.names = FALSE)
-```
 
 ## Estructura aplicación
 
@@ -2180,6 +2178,8 @@ https://rpubs.com/luis_fernandez_bernal/ejercicio_mann_whitney
 https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/wilcox.test
 https://www.sthda.com/english/wiki/unpaired-two-samples-wilcoxon-test-in-r
 https://stackoverflow.com/questions/70210990/how-to-run-paired-wilcoxon-test-for-multiple-variables-using-a-for-loop?utm_source=chatgpt.com
+https://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/76-add-p-values-and-significance-levels-to-ggplots/
+https://search.r-project.org/CRAN/refmans/ggpubr/html/stat_compare_means.html
 
 ## linear regression
 https://www.datacamp.com/tutorial/multiple-linear-regression-r-tutorial
