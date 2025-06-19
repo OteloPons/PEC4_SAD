@@ -1,10 +1,10 @@
-
-library(shiny)  # Cargamos el paquete shiny
-library(bslib)
-library(ggplot2)  # Cargamos el paquete ggplot2
+library(shiny)    
+library(bslib)    
+library(ggplot2)  
 library(DT)
 
 ui <- page_sidebar(
+  # cargamos el tema "pulse" de bootswatch
   theme = bs_theme(version = 5, bootswatch = "pulse"),
   
   titlePanel(textOutput("titulo_archivo")),
@@ -19,7 +19,7 @@ ui <- page_sidebar(
     id = "main_tabs",
     
     nav_panel("Resumen datos",
-              uiOutput("welcome_message"),
+
               layout_columns(
                 col_widths = c(6, 6), 
                 card(
@@ -162,7 +162,6 @@ server <- function(input, output) {
       # Usamos tags$p() para crear párrafos. El texto es reactivo.
       tags$p(paste("Nº observaciones:", nrow(data()))),
       tags$p(paste("Nº variables:",  ncol(data()))),
-      #tags$p(paste("Mujeres:", mujeres))
     )
   })
   # Tabla estadísticos
@@ -179,7 +178,7 @@ server <- function(input, output) {
         scrollX = TRUE,
         searching = FALSE # Deshabilitar búsqueda
       ),
-      rownames = FALSE # No mostrar nombres de fila por defecto de R
+      rownames = FALSE # No mostrar nombres de fila 
     )
   })
 
@@ -213,15 +212,12 @@ server <- function(input, output) {
       options = list(
         paging = FALSE,
         scrollY = "450px", 
-        #pageLength = 6,
-        # Filas por página
         scrollX = TRUE,
-        # Scroll horizontal si hay muchas columnas
         searching = FALSE # Habilitar búsqueda
       ),
-      rownames = FALSE # No mostrar nombres de fila por defecto de R
+      rownames = FALSE # No mostrar nombres de fila 
     )
-    #}
+    
   })
 
   # ----------- Histograma ------------------------------
@@ -236,17 +232,23 @@ server <- function(input, output) {
     variables_numericas <- setdiff(variables_numericas, c("id"))
   
     tagList(
-      selectInput("var_hist",
-                  "Variable:",
-                  choices = variables_numericas,
-                  selected = intersect("BMI", variables_numericas)[1]),
-      sliderInput("bins_hist",
+      fluidRow(
+         column(6,
+          selectInput("var_hist",
+                      "Variable:",
+                      choices = variables_numericas,
+                      selected = intersect("BMI", variables_numericas)[1])
+         ),
+         column(6,
+          sliderInput("bins_hist",
                   "Bins:",
                   min = 5,
                   max = 100,
                    value = 30)
-     )
-   })
+         )
+      )
+    )
+  })
 
   output$histograma <- renderPlot({
   
