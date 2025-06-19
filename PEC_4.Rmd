@@ -791,18 +791,566 @@ El valor del AUC es 0.95, lo cual indica que el modelo ha mejorado mucho y ahora
 
 Para facilitar la visualización de los datos, así como de las herramientas estadísticas empleadas, hemos programado una aplicación Shiny. En ella, mostramos los principales análisis realziados en este estudio: resumen de datos, estadística descriptiva y estadística predictiva. Podemos visualizar las características de los datos y realizar diferentes representaciones gráficas escogiendo las variables. En la parte correspondiente al modelo de regresión logística, podemos seleccionar el tamaño de los conjuntos de entrenamiento y de prueba y las variables empleadas para la predicción, así como representar la curva ROC y ver su principal parámetro: el área bajo la curva (AUC), indicador de la capacidad predictiva del modelo.
 
-```{r}
-  # Convertimos en .csv sin números de fila para cargarlo en Shiny
-write.csv(diabetes_df_limpio, "diabetes_limpio.csv", row.names = FALSE)
+## Estructura aplicación
+
+Se ha planteado la aplicación mediante los siguientes elementos:
+
+-   Panel lateral izquierdo donde se podrá cargar el archivo que se quiere analizar.
+
+-   Pestaña de resumen de datos. Donde podremos ver un resumen estadístico de los datos cargados inicialmente y compararlos con los procesados finalmente ( que son los que se utilizarán en el resto de las secciones)
+
+-   Pestaña de visión general y análisis exploratorio de datos (EDA). Donde tendremos disponemos de multitud de gráficos configurables para analizar los datos
+
+-   Pestaña para el modelo de regresión logística. Donde tendremos un modelo de regresión logística para la predicción del campo "diabetes"
+
+En las siguientes imágenes podemos ver como ha quedado el diseño.
+
+### **Pestaña de resumen de datos**
+
+Aquí hacemos un resumen estadístico (así como del porcentaje de nulos) de las variables numericas, por un lado de los datos brutos cargados desde el fichero y a la derecha como han quedado estos datos después de hacer el procesamiento (añadir variables, transformaciones y eliminacion de filas con valores nulos).
+
+![](images/resumen_datos.png)
+
+### Pestaña de visión general y análisis exploratorio de datos (EDA)
+
+En esta sección podemos analizar los datos de forma visual con histogramas, gráficos de dispersión, gráficos de caja y la correlación entre las variables numéricas. En cada gráfico podemos seleccionar qué variables queremos mostrar en cada eje.
+
+#### Histograma
+
+Podemos seleccionar tanto la variable cuya frecuencia queremos ver como el número de barras del histograma
+
+![](images/histograma.png)
+
+#### Dispersión
+
+Aparte de poder seleccionar que variable mostramos en cada eje, se ha añadido el poder segmentar por colores según las variables categóricas. De esta manera se puede intentar identificar de forma visual la existencia de algún tipo de cluster.
+
+![](images/dispersion.png)
+
+#### Boxplot
+
+Jugando con las variables categóricas y numéricas podemos hacer cualquier combinación.
+
+![](images/boxplot.png)
+
+#### Correlación
+
+Donde se puede ver de forma muy visual la correlación existente entre cada una de las variables numéricas
+
+![](images/correlacion.png)
+
+### Pestaña para el modelo de regresión logística
+
+Aquí podemos jugar con un modelo de regresión logística para predecir el campo "diabetes" que hemos creado de forma sintética.
+
+Se pueden seleccionar que variables queremos usar como predictores así como variar el tamaño del conjunto de entrenamiento y test.
+
+En la primera sección podremos ver el rendimiento del modelo y su matriz de confusión
+
+![](images/regresion_logística.png)
+
+En la segunda sección se muestra la curva ROC de este modelo y su área bajo la curva (AUC)
+
+![](images/curva_ROC.png)
+
+## Explicación del código
+
+### Importación de librerias
+
+Utilizamos las siguientes cuatro librerias:
+
+-   shiny. Para la aplicación
+
+-   DT. Para la tabla dinámica
+
+-   ggplot2. Para realizar los gráficos
+
+-   bslib. Libreria con unos estilos y layouts mas vistosos
+
+### Definición interfaz gráfica
+
+Aquí describimos como será el layout de la applicación y que objetos se mostrarán en cada sitio. Como hemos comentado tendremos un panel lateral para la carga del archivo y tres pestañas donde mostrar los datos y gráficos.
+
+#### Panel principal
+
+Usando la libreria bslib, cargamos los estilos del tema *pulse* que hemos obtenido de <https://bootswatch.com/pulse/>
+
+y jugamos con los estilos con la información obtenida de <https://rstudio.github.io/bslib/articles/theming/index.html>
+
+Creamos la barra lateral donde incrustamos el selector de archivos y creamos las pestañas centrales con *navset_card_tab* de bslib que podemos encontrar en <https://rstudio.github.io/bslib/reference/navset.html>
+
+```         
+ui <- page_sidebar( 
+
+# cargamos el tema "pulse" de bootswatch 
+theme = bs_theme(version = 5, bootswatch = "pulse"),
+
+titlePanel(textOutput("titulo_archivo")),
+
+sidebar = sidebar(
+    title = "Configuración Global",
+    fileInput("file",
+              "Cargar Archivo CSV",
+              accept = c("text/csv", ".csv")) ),
+
+navset_card_tab( id = "main_tabs",
+
+    nav_panel("Resumen datos", ...
 ```
 
+#### **Pestaña de resumen de datos**
+
+Usando *layout_columns* y *card* ponemos las dos tarjetas en dos columnas con la tabla de resumen de datos originales y procesados respectivamente.
+
+Destacar la utilización de *uiOutput* (en el cliente) y *renderUI* (en el servidor) para generar en componente visual dinámicamente desde el servidor.
+
+```         
+    nav_panel("Resumen datos",
+
+              layout_columns(
+                col_widths = c(6, 6), 
+                card(
+                  full_screen = TRUE,
+                  card_header("Datos originales"),
+                  card_body(
+                    layout_columns(
+                      col_widths = c(12, 12),
+                      row_heights = c(1,5),
+                      fill = FALSE,
+                      card(
+                        # Le damos estilo con clases de Bootstrap para que se vea como un value_box
+                        class = "bg-purple text-white", 
+                        card_body(
+                          uiOutput("resumen_datos_originales")
+                        )
+                      ),
+                      DTOutput("tabla")
+                    )
+                  )
+                ),
+                card(
+                  full_screen = TRUE,
+                  card_header("Datos procesados"),
+                  card_body(
+                    layout_columns(
+                      col_widths = c(12, 12),
+                      row_heights = c(1,5),
+                      fill = FALSE,
+                      card(
+                        # Le damos estilo con clases de Bootstrap para
+                        # que se vea como un value_box
+                        class = "bg-purple text-white", 
+                        card_body(
+                          uiOutput("resumen_datos_procesados")
+                        )
+                      ),
+                      DTOutput("tablaProcesada")
+                    )
+                  )
+                )
+              )
+    ),
+```
+
+#### Pestaña de visión general y análisis exploratorio de datos (EDA)
+
+En este panel se encuentran todos los gráficos que hemos dividido en secciones pero en lugar de pestañas lo hacemos con botones (usando *navset_pill* ). Todas las secciones tienen la misma estructura:
+
+-   uiOutput. Para generar dinámicamente desde el servidor los selectores de variables
+
+-   plotOutput. Para presentar el gráfico
+
+```         
+nav_panel("Visión General (EDA)",
+              navset_pill(
+                nav_panel("Histograma",
+                          uiOutput("hist_selector_ui"),
+                          plotOutput("histograma", height = "600px")
+                         ),
+                nav_panel("Dispersión",
+                          uiOutput("scatter_selector_ui"),
+                          plotOutput("scatter_plot", height = "600px")
+                         ),
+                nav_panel("Boxplot",
+                          uiOutput("box_selector_ui"),
+                          plotOutput("boxplot", height = "600px")
+                         ),
+                nav_panel("Correlación",
+                          plotOutput("corr_plot", height = "600px")
+                )
+              )
+    ),
+```
+
+#### Pestaña para el modelo de regresión logística
+
+Esta sección consta de un panel lateral izquierdo donde se interactua con los parametros del modelo de regresión y un panel central donde se visualizan los resultados.
+
+Los únicos elementos nuevos que no habiamos usado antes son:
+
+-   actionButton : Botón para lanzar la ejecución del modelo
+
+-   value_box : Tarjeta para mostrar un valor añadiendo un icono
+
+```         
+nav_panel("Modelo de Regresión Logística",
+      layout_sidebar(
+        sidebar = sidebar(
+          title = "Configuración del Modelo",
+          p("El objetivo es predecir si un paciente tiene diabetes
+             usando Regresión Logística. Se crea una variable 'diabetes' (SI/NO)
+             usando un umbral de hemoglobina glicosilada (glyhb) >= 6.5."),
+          
+          uiOutput("model_predictors_ui"),
+          
+          sliderInput("train_split",
+                      "Porcentaje para entrenamiento:",
+                      min = 50, max = 90, value = 70, step = 5),
+          
+          actionButton("train_model_btn",
+                       "Entrenar y Validar Modelo",
+                       class = "btn-primary",
+                       icon = icon("cogs"))
+        ),
+                
+                navset_card_pill(
+                  nav_panel("Matriz de Confusión",
+                            card_body(
+                              h5("Rendimiento del Modelo"),
+                              verbatimTextOutput("confusion_matrix_print")
+                            )
+                  ),
+                  nav_panel("Curva ROC y AUC",
+                            card_body(
+                              h5("Área Bajo la Curva (AUC)"),
+                              # Usaremos un value_box para destacar el valor del AUC
+                              value_box(
+                                title = "AUC (Area Under Curve)",
+                                value = textOutput("auc_value"),
+                                showcase = bsicons::bs_icon("graph-up-arrow"),
+                                theme = "primary"
+                              ),
+                              hr(),
+                              h5("Gráfico de la Curva ROC"),
+                              plotOutput("roc_curve_plot")
+                            )
+                  )
+                )
+              )
+    )
+  )
+```
+
+### Implementación del servidor
+
+En el servidor es donde se ejecuta toda la lógica de la aplicación. Principalmente podemos destacar las siguientes secciones:
+
+#### Carga de datos
+
+Es la parte que se encarga de leer el fichero que se ha seleccionado mediante el componete gráfico *fileInput* el cual proporciona el nombre del fichero en la variable *file* que usamos para leerlo y cambiar el título de la aplicación poniendole el nombre del ficher seleccionado.
+
+```         
+  data <- reactive({
+    req(input$file)
+    # Los datos usados dependen del archivo seleccionado
+    read.csv(input$file$datapath, row.names = NULL)   
+  })
+  
+  # Definimos título dependiente del archivo
+  output$titulo_archivo <- renderText({
+    if (is.null(input$file)) {
+      # Si no se ha cargado ningún archivo
+      "Cargue un archivo"
+    } else {
+      nombre_limpio <- tools::file_path_sans_ext(input$file$name)
+      nombre_capitalizado <- paste0(toupper(substring(nombre_limpio, 1, 1)), substring(nombre_limpio, 2))
+      
+      paste(nombre_capitalizado)
+    }
+  })
+```
+
+#### Resumen estadisticos variables numéricas
+
+Aquí tenemos las siguientes dos partes:
+
+-   RenderUI. Donde creamos dinánicamente el HTML con el resumen de número de observaciones y número de variables
+
+-   RenderDT: Donde generamos la tabla resumen con el apoyo de las siguientes funciones que hemos creado:
+
+    -   procesaDatosOriginales: donde le pasamos por parámetro los datos originales y devuelve un dataframe con los datos transformados (factorización, cambio de unidades, variables sintéticas y eliminación de nulos)
+
+    -   estadisticas_numericas: dado un dataframe devuelve otro con los estadísticos de las variables numéricas
+
+```         
+  ## ----------- Datos procesados ---------------- 
+  # Resumen 
+  output$resumen_datos_procesados <- renderUI({
+    req(data())
+    
+    # procesamos los datos
+    df <- procesaDatosOriginales(data())
+    
+    tagList(
+      # Usamos tags$p() para crear párrafos. El texto es reactivo.
+      tags$p(paste("Nº observaciones:", nrow(df))),
+      tags$p(paste("Nº variables:",  ncol(df))),
+    )
+  })
+  # Tabla estadísticos
+  output$tablaProcesada <- renderDT({
+    req(data())
+    # procesamos los datos
+    df <- data()
+    datos <- procesaDatosOriginales(df)
+    
+    # creamos las estadísticas numéricas
+    df <- estadisticas_numericas(datos)  
+    
+    # En caso de que tengamos datos montamos la tabla
+    datatable(
+      df,
+      options = list(
+        paging = FALSE,
+        scrollY = "450px", 
+        scrollX = TRUE,
+        searching = FALSE # Habilitar búsqueda
+      ),
+      rownames = FALSE # No mostrar nombres de fila 
+    )
+    
+  })
+```
+
+#### Visión general y análisis exploratorio de datos (EDA)
+
+Aquí tenemos el código para la generación de todos los gráficos. Todos ellos tienen la misma estructura por lo que para no extenderse demasiado pondremos como ejemplo el gráfico de dispersión
+
+La estructura que se repite tiene dos partes:
+
+##### Generación dinámica de los selectores de variables
+
+Aquí procesamos los datos originales, selccionamos cuales son las variables númericas y categóricas y creamos los componentes visuales para cada caso
+
+```         
+# --------- Scaterplot -----------------------------
+   output$scatter_selector_ui <- renderUI({ 
+     req(data())
+     # procesamos los datos
+     datos <- procesaDatosOriginales(data())
+     
+     variables_numericas <- names(datos[,sapply(datos, is.numeric)])
+     variables_categoricas <- names(datos[,sapply(datos, function(x) is.factor(x) || is.character(x))])
+     
+     variables_numericas <- setdiff(variables_numericas, c("id"))
+     color_choices <-  c("Ninguna" = "",variables_categoricas)
+     
+     tagList(
+       fluidRow(
+         column(4,
+                selectInput("var_scatter_x",
+                            "Eje X:",
+                            choices = variables_numericas,
+                            selected = intersect("imc",
+                                                 variables_numericas)[1])
+                ),
+         column(4, 
+                selectInput("var_scatter_y",
+                            "Eje Y:",
+                            choices = variables_numericas,
+                            selected = intersect("hemoglobina_glicosilada",
+                                                 variables_numericas)[1])),
+         column(4, 
+                selectInput("color_scatter",
+                            "colorear por",
+                            choices = color_choices,
+                            selected = "Ninguna"
+                )
+         )
+       )
+     )
+   })
+```
+
+##### Generación del gráfico
+
+Aquí creamos el scatterplot con ggplot. Aquí solo destacar las siguientes dos cosas:
+
+-   Uso de *aes_string* para que las variables de los ejes sean dinámicas en función de lo que se haya elegido anteriormente
+
+-   Uso de *geom_point* para colorear los puntos en caso de ser necesario en función de la variable categórica escogida
+
+```         
+  output$scatter_plot <- renderPlot({ 
+     
+     req(data(), input$var_scatter_x, input$var_scatter_y);
+     
+     datos <- procesaDatosOriginales(data())
+     
+     p <- ggplot(datos,
+                 aes_string(x = input$var_scatter_x, y = input$var_scatter_y)); 
+     
+     if (input$color_scatter != "" ) { 
+       p <- p + geom_point(aes_string(color = input$color_scatter), alpha = 0.7, size = 3)
+     } 
+     else { 
+       p <- p + geom_point(alpha = 0.7, size = 3, color = "#007bc2")
+     }
+     
+     p + labs(title = paste("Relación entre",
+                            input$var_scatter_x, "y",
+                            input$var_scatter_y)) +
+       theme_minimal(base_size = 14) 
+   })
+```
+
+#### Modelo de regresión logística
+
+Para llevar a cabo la regresión logística diferenciamos tres partes:
+
+##### Selector variables predictoras
+
+Aquí simplemente creamos de forma dinámica el selector (*selectInput*) de los predictores del modelo
+
+```         
+  output$model_predictors_ui <- renderUI({
+
+     req(data())
+     # procesamos los datos
+     datos <- procesaDatosOriginales(data())
+
+     variables_numericas <- names(datos[,sapply(datos, is.numeric)])
+     variables_categoricas <- names(datos[
+       sapply(datos,
+              function(x) is.factor(x) ||
+                is.character(x))
+     ])
+
+
+     predictores_sugeridos <- setdiff(variables_numericas,
+                                      c("id", "glyhb", "height", "weight"))
+
+     selectInput("model_predictors", "Variables Predictoras:",
+                 choices = c(variables_numericas, variables_categoricas),
+                 selected = predictores_sugeridos,
+                 multiple = TRUE)
+   })
+```
+
+##### Ejecución del modelo
+
+Aquí utilizamos *EventReactive* para detectar cuando se pulsa el boton para correr el modelo que es el mismo que hemos utilizado anterirormente en la práctica.
+
+Calculamos la matriz de confusión y la curva ROC y las devolvemos
+
+```         
+ model_results <- eventReactive(input$train_model_btn, {
+        req(req(data()), input$model_predictors)
+        
+        datos <- procesaDatosOriginales(data())
+        
+        columnas_modelo <- c("diabetes", input$model_predictors)
+        df <- na.omit(datos[, columnas_modelo])
+        
+        set.seed(666)
+        
+        train_index <- createDataPartition(
+          datos$diabetes,
+          p = 0.7,
+          list = FALSE,
+          times = 1
+        )
+        
+        
+        training_set <- datos[train_index,]
+        test_set <- datos[-train_index,]
+        
+       #cat(input$model_predictors)
+        
+        formula_str <- paste("diabetes","~", paste(input$model_predictors, collapse=" + "))
+        formula_str <- gsub("NULL","", formula_str, ignore.case = TRUE)
+        formula <- as.formula(formula_str)
+        
+        #cat("La formula que utilizaremos es: \n", formula_str)
+        
+        modelo_logistico <- glm(formula, data=training_set, family = "binomial")
+        
+        
+        prob_test <- predict(modelo_logistico, newdata = test_set, type="response")
+        
+        clase_positiva <- levels(training_set$diabetes)[2] # diabéticos
+        clase_negativa <- levels(training_set$diabetes)[1] # no diabéticos
+        
+        clase_predicha <- factor(
+          ifelse(prob_test > 0.5 , clase_positiva, clase_negativa),
+          levels = levels(test_set$diabetes))
+        
+        matriz_confusion <- confusionMatrix(data = clase_predicha,
+                                            reference = test_set$diabetes,
+                                            positive = clase_positiva)
+        
+        roc_test <- roc(response = test_set$diabetes,
+                        predictor = prob_test,
+                        levels = rev(levels(test_set$diabetes)))
+        
+        return(list(confusionMatrix = matriz_confusion, roc = roc_test))
+   })
+   
+```
+
+##### Visualización de resultados
+
+En función de los datos devueltos por el modelo, exponemos de forma reactiva los resultados
+
+Para la matriz de confusión y el valor AUC tenemos
+
+```         
+  output$confusion_matrix_print <- renderPrint({
+     req(model_results())
+      model_results()$confusionMatrix
+    })
+   
+   output$auc_value <- renderText({
+     req(model_results())
+     # Extraemos el AUC del objeto roc y lo formateamos
+     auc_val <- auc(model_results()$roc)
+     paste0(round(auc_val, 3))
+   })
+```
+
+Para crear la curva ROC nos valemos de la función *ggroc* cuya documentación podemos ver en <https://www.rdocumentation.org/packages/pROC/versions/1.18.5/topics/ggroc.roc>
+
+```         
+ output$roc_curve_plot <- renderPlot({
+     req(model_results())
+     roc_obj <- model_results()$roc
+     
+     # Graficar la curva ROC con ggplot2 para un mejor estilo
+     ggroc(roc_obj, color = "#007bc2", size = 1) +
+       geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1),
+                    color="grey",
+                    linetype="dashed") +
+       ggtitle("Curva ROC") +
+       labs(x = "Tasa de Falsos Positivos (1 - Especificidad)",
+            y = "Tasa de Verdaderos Positivos (Sensibilidad)") +
+       annotate("text", x = .5, y = .5, 
+                label = paste("AUC =", round(auc(roc_obj), 3)), 
+                size = 5, fontface = "bold") +
+       theme_minimal(base_size = 14)
+   })
+```
+
+## Código completo aplicación
+
 ```{r, message=FALSE, warning=FALSE, results='hide'}
-library(shiny)  # Cargamos el paquete shiny
-library(bslib)
-library(ggplot2)  # Cargamos el paquete ggplot2
+
+library(shiny)    
+library(bslib)    
+library(ggplot2)  
 library(DT)
 
 ui <- page_sidebar(
+  # cargamos el tema "pulse" de bootswatch
   theme = bs_theme(version = 5, bootswatch = "pulse"),
   
   titlePanel(textOutput("titulo_archivo")),
@@ -817,7 +1365,7 @@ ui <- page_sidebar(
     id = "main_tabs",
     
     nav_panel("Resumen datos",
-              uiOutput("welcome_message"),
+
               layout_columns(
                 col_widths = c(6, 6), 
                 card(
@@ -960,7 +1508,6 @@ server <- function(input, output) {
       # Usamos tags$p() para crear párrafos. El texto es reactivo.
       tags$p(paste("Nº observaciones:", nrow(data()))),
       tags$p(paste("Nº variables:",  ncol(data()))),
-      #tags$p(paste("Mujeres:", mujeres))
     )
   })
   # Tabla estadísticos
@@ -977,7 +1524,7 @@ server <- function(input, output) {
         scrollX = TRUE,
         searching = FALSE # Deshabilitar búsqueda
       ),
-      rownames = FALSE # No mostrar nombres de fila por defecto de R
+      rownames = FALSE # No mostrar nombres de fila 
     )
   })
 
@@ -1011,15 +1558,12 @@ server <- function(input, output) {
       options = list(
         paging = FALSE,
         scrollY = "450px", 
-        #pageLength = 6,
-        # Filas por página
         scrollX = TRUE,
-        # Scroll horizontal si hay muchas columnas
         searching = FALSE # Habilitar búsqueda
       ),
-      rownames = FALSE # No mostrar nombres de fila por defecto de R
+      rownames = FALSE # No mostrar nombres de fila 
     )
-    #}
+    
   })
 
   # ----------- Histograma ------------------------------
@@ -1034,17 +1578,23 @@ server <- function(input, output) {
     variables_numericas <- setdiff(variables_numericas, c("id"))
   
     tagList(
-      selectInput("var_hist",
-                  "Variable:",
-                  choices = variables_numericas,
-                  selected = intersect("BMI", variables_numericas)[1]),
-      sliderInput("bins_hist",
+      fluidRow(
+         column(6,
+          selectInput("var_hist",
+                      "Variable:",
+                      choices = variables_numericas,
+                      selected = intersect("BMI", variables_numericas)[1])
+         ),
+         column(6,
+          sliderInput("bins_hist",
                   "Bins:",
                   min = 5,
                   max = 100,
                    value = 30)
-     )
-   })
+         )
+      )
+    )
+  })
 
   output$histograma <- renderPlot({
   
@@ -1415,7 +1965,6 @@ server <- function(input, output) {
 # Creamos la aplicación Shiny
 shinyApp(ui = ui, server = server)
 ```
-
 # Sección 6. Conclusiones
 
 ## En base a todo el estudio realizado en esta práctica, haga una valoración final. Para ello, puede basarse en las siguientes preguntas: "¿disponemos de conclusiones finales?", "¿sería necesario hacer un análisis más avanzado?", "¿faltan datos para obtener otro tipo de información como...?", “¿se puede utilizar alguna de las conclusiones para tomar algún tipo de decisiones?”.
