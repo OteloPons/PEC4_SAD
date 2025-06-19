@@ -41,33 +41,33 @@ install_package <- function(package_name){
     install.packages(package_name) 
   }
 
-install_package("knitr")    # para la generación de tablas mas vistosas
-install_package("glue")     # para formatear texto interpolando variables
-install_package("ggplot")
-install_package("cowplot")
-install_package("corrplot")
-install_package("tidyverse")  # para la regresión logística
-install_package("ISLR")  # para la regresión logística
-install_package("ggeffects")  # para la regresión logística múltiple
-install_package("caret")
-install_package("pROC")  # para la curva ROC
-install_package("dplyr")
-install_package("ggfortify")  # para repreentar gráficamente los resultados del PCA
+install_package("knitr")         # para la generación de tablas mas vistosas
+install_package("glue")          # para formatear texto interpolando variables
+install_package("ggplot")        # para crear gráficos flexibles
+install_package("cowplot")       # para juntar gráficos de ggplot2 en el mismo lienzo
+install_package("corrplot")      # para visualizar matrices de correlación
+install_package("tidyverse")     # para la regresión logística
+install_package("ISLR")          # para la regresión logística
+install_package("ggeffects")     # para la regresión logística múltiple
+install_package("caret")         # para crear y entrenar modelos predictivos
+install_package("pROC")          # para la curva ROC
+install_package("dplyr")         # manipulación flexible de datos
+install_package("ggfortify")     # para repreentar gráficamente los resultados del PCA
 }
 
 # cargamos las librerias que vamos a utilizar
-library("knitr")    
-library("glue")     
-library("ggplot2")
-library("cowplot")
-library("corrplot")
-library("tidyverse")  # para la regresión logística
-library("ISLR")  # para la regresión logística
-library("ggeffects")  # para la regresión logística múltiple
-library("caret")
-library("pROC")   # para la curva ROC
-library("dplyr")
-library("ggfortify")  # para repreentar gráficamente los resultados del PCA
+library("knitr")                 # para la generación de tablas mas vistosas
+library("glue")                  # para formatear texto interpolando variables  
+library("ggplot2")               # para crear gráficos flexibles
+library("cowplot")               # para juntar gráficos de ggplot2 en el mismo lienzo
+library("corrplot")              # para visualizar matrices de correlación
+library("tidyverse")             # para la regresión logística
+library("ISLR")                  # para la regresión logística
+library("ggeffects")             # para la regresión logística múltiple
+library("caret")                 # para crear y entrenar modelos predictivos
+library("pROC")                  # para la curva ROC
+library("dplyr")                 # manipulación flexible de datos
+library("ggfortify")             # para repreentar gráficamente los resultados del PCA
 ```
 
 
@@ -84,8 +84,10 @@ Ahora, observaremos el contenido y la estructura del conjunto de datos, las vari
 Cargamos el archivo que vamos a emplear para nuestro análisis y mostramos los tipos de datos que contiene:
 
 ```{r}
+# cargamos el archivo
 diabetes_df <- read.csv("data/diabetes.csv")
 
+# vemos los tipos de datos en él
 str(diabetes_df)
 
 ```
@@ -174,7 +176,6 @@ diabetes_df[variables_en_pulgadas] <- lapply(
   diabetes_df[variables_en_pulgadas],
   inches_to_meters
 )
-
 
 # peso de libras a kilos
 diabetes_df$weight <- pounds_to_kilos(diabetes_df$weight)
@@ -485,7 +486,7 @@ paste("Probabilidad de que haya 600 o más hipertensos:", 1 - pbinom(val2, n, p2
 paste("Probabilidad de que haya al menos 300 hipertensos diabéticos:", (1 - pbinom(299, n, p1)) * (1 - pbinom(299, n, p2)))
 ```
 
-## Muestreo#
+## Muestreo
 
 Vamos a sacar una muestra al azar de nuestro grupo de pacientes y a comprobar si una variable cualquiera, como la hemoglobina glicosilada, se distribuye de manera normal en ellos. Primero se hace el muestreo. Luego, verificamos si la distribución es normal, tanto visualmente como con un test estadístico (Shapiro-Wilk).
 
@@ -519,7 +520,6 @@ El valor de p es mucho menor de 0,0001, lo que indica que el riesgo de asumir er
 
 
 # Sección 4. Modelos de aprendizaje automático
-
 
 ## Comprobaciones resultados diabetes vs otras variables
 
@@ -2073,3 +2073,82 @@ Como conclusión, consideramos que hemos hecho un análisis estadístico complet
 
 
 
+# Sección 7. Bibliografía adicional
+
+## package installation
+https://r-coder.com/install-r-packages/
+https://forum.posit.co/t/is-it-a-good-idea-to-conditionally-load-install-libraries-at-the-beginning-of-a-script/15334
+https://stackoverflow.com/questions/4090169/elegant-way-to-check-for-missing-packages-and-install-them
+
+## splitting objects
+https://www.geeksforgeeks.org/r-language/how-to-split-vector-and-data-frame-in-r/
+
+## mixing graphs
+https://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/81-ggplot2-easy-way-to-mix-multiple-graphs-on-the-same-page/
+
+## correlation matrix
+https://rpubs.com/tskam/Corrgram
+https://www.geeksforgeeks.org/r-language/how-to-plot-a-correlation-matrix-into-a-graph-using-r/
+
+## PCA analysis
+https://www.geeksforgeeks.org/r-language/principal-component-analysis-with-r-programming/
+https://www.r-bloggers.com/2021/05/principal-component-analysis-pca-in-r/
+https://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/
+https://rpubs.com/cristina_gil/pca
+https://www.datacamp.com/tutorial/pca-analysis-r
+
+## creating R functions
+https://r4ds.had.co.nz/functions.html
+https://www.r-bloggers.com/2022/04/how-to-create-your-own-functions-in-r/
+https://www.dataquest.io/blog/write-functions-in-r/
+https://www.w3schools.com/r/r_functions.asp
+https://stackoverflow.com/questions/58626472/how-to-apply-the-same-function-to-several-variables-in-r
+
+## apply functions
+https://www.geeksforgeeks.org/r-language/apply-lapply-sapply-and-tapply-in-r/
+https://www.dataquest.io/blog/apply-functions-in-r-sapply-lapply-tapply/
+
+## Shapiro-Wilk test
+https://rpubs.com/rubenortiz/192363
+https://www.geeksforgeeks.org/r-language/normality-test-for-multi-grouped-data-in-r/?utm_source=chatgpt.com
+
+## Mann-Whitney / Wilcoxon-Silk test
+https://guides.library.lincoln.ac.uk/mash/mann_whitney_R
+https://www.sheffield.ac.uk/media/30589/download?attachment
+https://rpubs.com/samidlimon/mannwhitney
+https://rpubs.com/luis_fernandez_bernal/ejercicio_mann_whitney
+https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/wilcox.test
+https://www.sthda.com/english/wiki/unpaired-two-samples-wilcoxon-test-in-r
+https://stackoverflow.com/questions/70210990/how-to-run-paired-wilcoxon-test-for-multiple-variables-using-a-for-loop?utm_source=chatgpt.com
+
+## linear regression
+https://www.datacamp.com/tutorial/multiple-linear-regression-r-tutorial
+https://www.geeksforgeeks.org/machine-learning/multiple-linear-regression-using-r/
+
+## logistic regression
+https://www.datacamp.com/tutorial/logistic-regression-R
+https://www.sthda.com/english/articles/36-classification-methods-essentials/151-logistic-regression-essentials-in-r/
+https://www.r-bloggers.com/2015/09/how-to-perform-a-logistic-regression-in-r/
+https://www.geeksforgeeks.org/logistic-regression-in-r-programming/
+https://rpubs.com/stevenazza7181/825139
+
+## confusion matrix
+https://www.digitalocean.com/community/tutorials/confusion-matrix-in-r
+https://rpubs.com/ljencisoo/509744
+https://www.geeksforgeeks.org/r-language/confusion-matrix-in-r/
+
+## ifelse() function
+https://www.datamentor.io/r-programming/ifelse-function
+https://www.datamentor.io/r-programming/ifelse-function
+
+## Shiny app
+https://stackoverflow.com/questions/39436713/r-shiny-reactivevalues-vs-reactive
+https://www.appsilon.com/post/r-shiny-reactivity
+https://debruine.github.io/shinyintro/reactives.html
+https://shiny.posit.co/r/getstarted/build-an-app/reactivity-essentials/reactive-elements.html
+https://mastering-shiny.org/basic-reactivity.html
+https://shiny.posit.co/r/getstarted/shiny-basics/lesson6/
+https://rpubs.com/JairoAyala/Shiny_parte1
+https://rpubs.com/cmlopera/introShiny
+https://diegokoz.github.io/intro_ds/clase_6/06_explicacion.nb.html
+https://shiny.posit.co/r/getstarted/shiny-basics/lesson1/
