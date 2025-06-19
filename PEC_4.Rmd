@@ -2031,8 +2031,12 @@ server <- function(input, output) {
       "NO")
     )
     
-    #------ Eliminamos Na's -----------
-    df_procesado <- na.omit(df_procesado)
+    # quitamos las columnas que no nos interesan
+    diabetes_reducido <- df_procesado %>%
+      select(-c(id, bp.2s, bp.2d))  # Elimina solo lo que realmente quieres quitar
+
+    # ahora eliminamos los NAs
+    df_procesado <- na.omit(diabetes_reducido)
     
     return (df_procesado)
   }
