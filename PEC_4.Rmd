@@ -31,7 +31,7 @@ Tras examinar cuidadosamente el conjunto de datos, nos propusimos usar la inform
 ## Inicialización entorno trabajo
 
 ```{r, echo=FALSE, warning=FALSE}
-# definimos y ponemos el directorio de trabajo 
+# definimos y establecemos el directorio de trabajo 
 directorio_trabajo <- paste0(getwd(), ' ')
 setwd(directorio_trabajo)  
 
@@ -53,6 +53,7 @@ install_package("caret")         # para crear y entrenar modelos predictivos
 install_package("pROC")          # para la curva ROC
 install_package("dplyr")         # manipulación flexible de datos
 install_package("ggfortify")     # para repreentar gráficamente los resultados del PCA
+install_package("ggpubr")
 }
 
 # cargamos las librerias que vamos a utilizar
@@ -68,6 +69,7 @@ library("caret")                 # para crear y entrenar modelos predictivos
 library("pROC")                  # para la curva ROC
 library("dplyr")                 # manipulación flexible de datos
 library("ggfortify")             # para repreentar gráficamente los resultados del PCA
+library("ggpubr")
 ```
 
 
@@ -228,10 +230,6 @@ diabetes_df$age <- cut(diabetes_df$age,   # partimos la variable...
 ```
 
 
-Para comprobar la consistencia de los datos contenidos en este conjunto, llevaremos a cabo un análisis de los valores aberrantes (que se salen de rango) en las distintas variables empleadas..................................------------------------------------------------------------------------------------.
-
-
-
 ### Objetivos del estudio
 
 Una vez observados los datos, nos hemos planteado las siguientes preguntas/objetivos:
@@ -240,9 +238,13 @@ Una vez observados los datos, nos hemos planteado las siguientes preguntas/objet
 
 2)  En base a la tensión arterial, investigaremos si el paciente es hiper- o hipotenso. Se considera hipertenso si la PS es igual/mayor de 140 mmHg y la PD es igual/mayor de 90 mmHg. Se considera hipotenso si la PS es menor de 90 y la PD menor de 60.
 
-3)  Estudiaremos la relación cintura/cadera para ver si el paciente es obeso y si la obesidad/no obesidad afecta a la diabetes.
+3)  Estudiaremos la relación cintura/cadera (WHR) para ver cómo se relaciona este parámetro con la presencia/ausencia de diabetes diagnosticada.
 
-4)  Estudiaremos el índice de masa corporal por la misma razón que el punto 3), para comparar ambos parámetro entre sí y con la presencia/ausencia de diabetes diagnosticada.
+4)  Estudiaremos el índice de masa corporal (BMI) para compararlo el WHR y con la presencia/ausencia de diabetes diagnosticada.
+
+5)  Estudiaremos las relaciones entre las variables para ver qué parámetro/combinación de parámetros guarda mayor relación con la presencia o ausencia de diabetes.
+
+6)  Intentaremos crear un modelo, basado en estos datos, que sirva para clasificar otros grupos de pacientes en "diabéticos" y "no diabéticos".
 
 
 
@@ -276,7 +278,7 @@ summary(diabetes_df[,c("diabetes","hipertenso")])
 ```{r, fig.width=15, fig.height=9}
 # quitamos las columnas que no nos interesan
 diabetes_reducido <- diabetes_df %>%
-  select(-c(id, bp.2s, bp.2d))  # Elimina solo lo que realmente quieres quitar
+  select(-c(id, bp.2s, bp.2d))
 
 # ahora eliminamos los NAs
 diabetes_df_limpio <- na.omit(diabetes_reducido)
@@ -296,14 +298,14 @@ matriz_correlacion <- cor(columnas_numericas[, -c(1, 11, 12)], method = "pearson
 
 # representamos los datos de manera más amigable empleando la función corrplot()
 corrplot(matriz_correlacion,
-             method = "circle",      # "circle", "square", "ellipse", "number", "shade", "color", "pie"
-             type = "upper",          # "full", "lower", "upper"
-             tl.col = "black",      # Color del texto de las etiquetas
-             tl.srt = 45,           # Rotación del texto de las etiquetas
-             addCoef.col =  NULL, # Añadir coeficientes si el método es 'number' o el tipo es 'full'
+             method = "circle",     # Usamos objetos circulares
+             type = "upper",        # Mostramos la esquina superior de la matriz
+             tl.col = "black",      # Etiquetas con texto en negro
+             tl.srt = 45,           # Rotamos el texto de las etiquetas
+             addCoef.col =  NULL,   # Añadimos coeficientes si el método es 'number' o el tipo es 'full'
              number.cex = 0.7,      # Tamaño de los números si se muestran
-             order = "hclust",      # Reordenar variables por clustering jerárquico para ver patrones
-             na.label = "NA",       # Etiqueta para NAs en la matriz
+             order = "hclust",      # Reordenamos las variables por clustering jerárquico para ver patrones
+             na.label = "NA",       # Etiquetamos los NAs como tales
              na.label.col = "grey"
             )
 ```
@@ -376,6 +378,33 @@ grafico_5 <- ggplot(diabetes_df_limpio, aes (x = diabetes, y = ratio)) +
 # agrupamos los gráficos en la misma figura
 plot_grid(grafico_1, grafico_2, grafico_3, grafico_4, grafico_5,  ncol = 2, nrow =3)
 ```
+
+Como podría haber una diferencia significativa entre los 2 grupos en el último gráfico, vamos 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+grafico_5 <- ggplot(diabetes_df_limpio, aes (x = diabetes, y = ratio)) +
+  geom_boxplot() +     # Definimos tipo de gráfico
+  xlab("Diabetes") +     # Etiqueta eje X
+  ylab ("Ratio") +    # Etiqueta eje Y
+  ggtitle ("Comparación ratio HDL/colesterol total") +    # Título gráfico
+ theme_classic() +
+  theme(    
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15))
+  ) + 
+  scale_fill_brewer(palette = "Set1")
+
+# Añadir la comparación de medianas y las estrellas de significancia
+grafico_estad <- grafico_5 + stat_compare_means(
+  method = "wilcox.test",         # empleamos el test de Wilcoxon-Silk
+  comparisons = list(c("NO", "SI")),
+  label = "p.signif"              # Muestra las estrellas de significancia (p-valor)
+)
+
+grafico_estad
+```
+
+
 
 
 2) Gráficos de dispersión
@@ -2054,9 +2083,10 @@ server <- function(input, output) {
 shinyApp(ui = ui, server = server)
 ```
 
+
 # Sección 6. Conclusiones
 
-## En base a todo el estudio realizado en esta práctica, haga una valoración final. Para ello, puede basarse en las siguientes preguntas: "¿disponemos de conclusiones finales?", "¿sería necesario hacer un análisis más avanzado?", "¿faltan datos para obtener otro tipo de información como...?", “¿se puede utilizar alguna de las conclusiones para tomar algún tipo de decisiones?”.
+## Valoración final
 
 En este estudio hemos realizado un análisis de las variables cuantitativas y cualitativas de un grupo amplio de pacientes (403), de los cuales un 15,6% eran diabéticos y un 23,3 % eran hipertensos. El diagnóstico de diabetes se establece habitualmente en la práctica clínica cuando la hemoglobina glicosilada del paciente iguala o supera el 6,5%. Nuestro propósito principal era comprobar si alguna de las otras variables medidas en estos pacientes presentaba una correlación sólida con respecto a la hemoglobina glicosilada, y, por tanto, si podía servir como marcador biologico para establecer el riesgo de diabetes antes de debutar con la enfermedad.
 
@@ -2069,7 +2099,30 @@ Finalmente, creamos una aplicación Shiny compleja que permite no sólo visualiz
 Como conclusión, consideramos que hemos hecho un análisis estadístico completo y construido un modelo eficaz para clasificar a otros grupos de pacientes, distintos de los aquí analizados, en "diabéticos" o "no diabéticos". Sin embargo, habría que explorar otro tipo de variables biológicas para ver si se pueden conseguir modelos multiparamétricos o uniparamétricos aún mejores. Tales modelos podrían ayudar a anticipar el debut de la diabetes, lo que facilitaría actuar de urgencia sobre el paciente para intentar evitarlo (por ejemplo, mejorando los hábitos alimenticios).
 
 
-## En otro orden de cuestiones, valorad también el trabajo en grupo y la calidad del informe de análisis de datos generado.
+## Valoración del trabajo y el informe
+
+### Valoración Enrique
+
+El desarrollo de la actividad en colaboración con Otelo ha sido muy satisfactorio. Hemos llegado pronto a un acuerdo sobre el tipo de análisis que queríamos realizar y nos hemos puesto a trabajar en él, manteniendo reuniones periódicas de cierta extensión y trabajando también por nuestra cuenta (siguiendo las directrices fijadas en estas reuniones).
+
+Nos hemos beneficiado mutuamente de un enfoque multidisciplinar, ya que provenimos de sectores académicos y profesionales opuestos en lo que a este Máster se refiere: Otelo es especialista en informática y programación, y yo en ciencias biológicas. Así, hemos colaborado aportando cada uno los conocimientos propios de nuestro campo y alcanzado una buena sinergia. 
+
+Hemos dedicado ambos una parte importante de nuestro tiempo a reflexionar sobre los datos y a ejecutar el análisis más preciso posible, en base a nuestros conocimientos. Nuestro objetivo ha sido siempre llegar al siguiente nivel para aprender lo máximo posible con esta asignatura. Pese a que tenemos todavía un notable espacio de mejora (dada la potencia de este lenguaje de programación), considero que el trabajo en grupo ha servido para consolidar los conocimientos de R y de estadística adquiridos durante el semestre. 
+
+Como ejemplo de algo a mejorar podría citar el uso de GitHub para coordinar el trabajo. Al no haber conseguido sincronizarlo con el R Studio, hemos tenido que ir subiendo las actualizaciones a mano cada uno por nuestra cuenta. Pero, así y todo, hemos sacado un buen partido de él.
+
+El análisis de datos generado aporta muchísima información, ya que hemos puesto a punto un estudio descriptivo e inferencial muy completo, y hemos generado una herramienta de visualización muy atractiva y amable con el usuario. Estoy muy satisfecho con la calidad del informe final, que sirve como punto de partida para potenciar mis conocimientos de R y de estadística en el futuro. 
+
+
+### Valoración Otelo
+
+Por mi parte solo puedo decir cosas positivas del trabajo que hemos hecho. El trato con Enrique ha sido muy bueno desde el primer dia que nos conocimos. Ha sido fácil el llegar a acuerdos con él, desde la elección del dataset a estudiar pasando por todos los puntos del trabajo.
+
+Hemos hecho varias sesiones de trabajo en conjunto donde debatíamos los puntos que nos habiamos comprometido a estudiar previamente, llegando a un consenso en estos puntos y proponiendo hitos para la siguiente sesión.
+
+Aún con la diferencia de nuestros perfiles ( Enrique es bioquímico y yo ingeniero en informática) nos hemos sabido complementar bastante bien y creo que hemos aprendido el uno del otro.
+
+A nivel técnico nos hemos organizado compartiendo el código y documentos a través de github, cosa que al principio parecia muy buena idea, pero al intentar usarlo desde Rstudio nos hemos encontrado con muchos problemas y al final hemos tenido que hacer las sincronizaciones a mano.
 
 
 
@@ -2079,6 +2132,9 @@ Como conclusión, consideramos que hemos hecho un análisis estadístico complet
 https://r-coder.com/install-r-packages/
 https://forum.posit.co/t/is-it-a-good-idea-to-conditionally-load-install-libraries-at-the-beginning-of-a-script/15334
 https://stackoverflow.com/questions/4090169/elegant-way-to-check-for-missing-packages-and-install-them
+
+# uso de índices
+https://rspatial.org/intr/4-indexing.html
 
 ## splitting objects
 https://www.geeksforgeeks.org/r-language/how-to-split-vector-and-data-frame-in-r/
@@ -2137,6 +2193,11 @@ https://www.digitalocean.com/community/tutorials/confusion-matrix-in-r
 https://rpubs.com/ljencisoo/509744
 https://www.geeksforgeeks.org/r-language/confusion-matrix-in-r/
 
+## curva ROC
+https://www.rdocumentation.org/packages/pROC/versions/1.18.5/topics/ggroc.roc
+https://rpubs.com/arquez9512/599268
+https://www.geeksforgeeks.org/r-language/plotting-roc-curve-in-r-programming/
+
 ## ifelse() function
 https://www.datamentor.io/r-programming/ifelse-function
 https://www.datamentor.io/r-programming/ifelse-function
@@ -2152,3 +2213,7 @@ https://rpubs.com/JairoAyala/Shiny_parte1
 https://rpubs.com/cmlopera/introShiny
 https://diegokoz.github.io/intro_ds/clase_6/06_explicacion.nb.html
 https://shiny.posit.co/r/getstarted/shiny-basics/lesson1/
+https://www.rdocumentation.org/packages/pROC/versions/1.18.5/topics/ggroc.roc
+https://rstudio.github.io/bslib/reference/navset.html
+https://rstudio.github.io/bslib/articles/theming/index.html
+https://bootswatch.com/pulse/
