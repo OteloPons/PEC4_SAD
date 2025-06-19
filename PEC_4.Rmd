@@ -14,7 +14,6 @@ output:
 \tableofcontents  
 \newpage
 
-probando cambios
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -31,7 +30,7 @@ Tras examinar cuidadosamente el conjunto de datos, nos propusimos usar la inform
 
 ## Inicialización entorno trabajo
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 # definimos y ponemos el directorio de trabajo 
 directorio_trabajo <- paste0(getwd(), ' ')
 setwd(directorio_trabajo)  
@@ -52,6 +51,8 @@ install_package("ISLR")  # para la regresión logística
 install_package("ggeffects")  # para la regresión logística múltiple
 install_package("caret")
 install_package("pROC")  # para la curva ROC
+install_package("dplyr")
+install_package("ggfortify")  # para repreentar gráficamente los resultados del PCA
 }
 
 # cargamos las librerias que vamos a utilizar
@@ -62,10 +63,11 @@ library("cowplot")
 library("corrplot")
 library("tidyverse")  # para la regresión logística
 library("ISLR")  # para la regresión logística
-library("pROC")
 library("ggeffects")  # para la regresión logística múltiple
 library("caret")
 library("pROC")   # para la curva ROC
+library("dplyr")
+library("ggfortify")  # para repreentar gráficamente los resultados del PCA
 ```
 
 
@@ -122,6 +124,7 @@ estadisticos_columna <- function(col) {
   } 
 }
 
+# creamos otra función para aplicar el resumen estadístico a un data.frame
 estadisticas_numericas <- function(df) {
   
 # Escogemos solo las variables numéricas
@@ -191,7 +194,7 @@ diabetes_df$WHR <- diabetes_df$waist / diabetes_df$hip
 Después de hacer las transformaciones necesarias y la creación de nuevas variables, veamos como queda finalmente nuestro conjunto de datos:
 
 ```{r}
-
+# estadísticos principales, quitamos columna de ID
 estadisticas_numericas(diabetes_df[, -1])
 ```
 
@@ -270,16 +273,23 @@ summary(diabetes_df[,c("diabetes","hipertenso")])
 ## 3.1 Análisis descriptivo
 
 ```{r, fig.width=15, fig.height=9}
-diabetes_df_limpio <- na.omit(diabetes_df)
+# quitamos las columnas que no nos interesan
+diabetes_reducido <- diabetes_df %>%
+  select(-c(id, bp.2s, bp.2d))  # Elimina solo lo que realmente quieres quitar
 
-columnas_numericas <- diabetes_df_limpio[,sapply(diabetes_df_limpio, function(x) is.numeric(x))]
+# ahora eliminamos los NAs
+diabetes_df_limpio <- na.omit(diabetes_reducido)
 
+# vemos los resultados
 head(diabetes_df_limpio)
 ```
 
 Para investigar posibles correlaciones entre las variables que podamos usar para guiar nuestro análisis, vamos a obtener la matriz de correlaciones y a representarla de gráficaemnte. Hemos escogido la herramienta corrplot() del paquete homónimo, ya que permite visualizar las relaciones entre variables de una forma muy sencilla.
 
 ```{r, fig.width=15, fig.height=9}
+# seleccionamos las columnas numéricas
+columnas_numericas <- diabetes_df_limpio[,sapply(diabetes_df_limpio, function(x) is.numeric(x))]
+
 # creamos la matriz de correlación de las variables numéricas (quitando ID)
 matriz_correlacion <- cor(columnas_numericas[, -c(1, 11, 12)], method = "pearson", use = "pairwise.complete.obs")
 
@@ -296,7 +306,6 @@ corrplot(matriz_correlacion,
              na.label.col = "grey"
             )
 ```
-
 
 Ahora, vamos a representar distintos gráficos que nos ayuden a evaluar visualmente estas relaciones entre variables. Hemos seleccionado el gráfico de cajas y bigotes (boxplot) para estudiar las relaciones entre variables categóricas y numéricas. Hemos empleado gráficos de dispersión para enfrentar variables numéricas entre sí. Nos serviremos de las herramientas del paquete "ggplot2" para hacer gráficos de manera flexible. Con la función "plot_grid()" hemos conseguido agrupar varios de estos gráficos en el mismo lienzo.
 
@@ -503,108 +512,139 @@ La comprobación estadística se puede hacer con el test de normalidad de  Shapi
 ```{r}
 # Comprobación estadística de normalidad con test Shapiro-Wilk
 shapiro.test(observaciones_muestreadas$glyhb)
-
 ```
 
 El valor de p es mucho menor de 0,0001, lo que indica que el riesgo de asumir erróneamente que los datos no tienen una distribución normal es muy bajo. Es decir, podemos asumir no-normalidad con poco riesgo de errar.
 
 
 
-
 # Sección 4. Modelos de aprendizaje automático
 
 
-## Comprobaciones resultados diabetes vs ratio
+## Comprobaciones resultados diabetes vs otras variables
 
-La presencia/ausencia de diabetes nos divide el grupo de pacientes en 2 subgrupos, con un punto de corte clínicamente validado y, por tanto, aplicable a nuestro análisis. Ahora, para estos 2 grupos podemos analizar otras variables y ver si varían entre ambos o si tienen una distribución similar.
+La hemoglobina glicosilada nos permite dividir el grupo de pacientes en 2 subgrupos: diabetes vs no diabetes, con un punto de corte clínicamente validado y, por tanto, aplicable a nuestro análisis. A partir de esta clasificación, podemos analizar otras variables y evaluar si presentan diferencias significativas entre los grupos o si su distribución es similar.
 
-Antes de comparar las variables de ambos grupos, debemos saber si la distribución de valores es normal o no. Ello determinará el tipo de test que podemos usar para analizarlas. Para comprobar la normalidad, usamos, como antes, el test de SHapiro-Wilk.
-
-```{r}
-  # Comprobamos la normalidad de los datos de ratio de pacientes con y sin diabetes
-shapiro.test(diabetes_df_limpio$ratio[diabetes_df_limpio$diabetes == "SI"])
-shapiro.test(diabetes_df_limpio$ratio[diabetes_df_limpio$diabetes == "NO"])
-```
-Como p<0.05, no podemos asumir que son datos normales. Hay que usar un test no paramétrico como Wilcoxon o Krustal-Wallis. Al tener sólo 2 grupos, empleamos Wilcoxon.
+Antes de comparar las variables de ambos grupos, debemos saber si la distribución de valores es normal o no. Ello determinará el tipo de test que podemos usar para analizarlas. Para comprobar la normalidad, usamos, como antes, el test de SHapiro-Wilk. Empleando un bucle for doble, podemos construir una herramienta para explorar la normalidad de múltiples variables en los dos grupos (diabetes vs no diabetes).
 
 ```{r}
-# test no paramétrico de independencia
-wilcox.test(ratio ~ diabetes, data = diabetes_df_limpio)
+# lista de variables numéricas a explorar
+variables <- c("ratio", "chol", "hdl", "stab.glu", "WHR", "BMI", "bp.1s", "bp.1d")
+
+# inicializamos una lista vacía para guardar los resultados
+shapiro_resultados <- list()
+
+# construimos un bucle que seleccione por grupo y variable
+for (grupo in c("SI", "NO")) {
+  for (var in variables) {
+    datos <- diabetes_df_limpio[[var]][diabetes_df_limpio$diabetes == grupo]
+    resultado <- shapiro.test(datos)
+    
+    # guardamos resultado de una manera identificable
+    casos_estudiados <- paste("Shapiro", var, grupo, sep = "__")
+    shapiro_resultados[[casos_estudiados]] <- resultado$p.value
+  }
+}
+
+# mostramos los valores p para cada variable y grupo
+print(shapiro_resultados)
 ```
+La mayoría de las variables tienen un valor p menor de 0.05 en ambos grupos, aunque algunas tienen un valor p mayor de 0.05 en uno de los grupos o en ambos. El valor p mayor de 0.05 indica que probablemente su distribución es normal. Sin embargo, como la mayoría no lo son, vamos a asumir que ninguna lo es.
 
-Dado que el p-value es mucho menor de 0.05, rechazamos la hipótesis nula de que ambos grupos (pacientes con y sin diabetes) tienen la misma distribución de la variable "ratio".
+Lo siguiente que haremos es evaluar si hay diferencias significativas para estas variables entre los dos grupos de pacientes. Emplearemos un test no paramétrico para todas (aunque algunas puedan distribuirse de manera normal), para no complicarnos. Al tener sólo 2 grupos, empleamos Wilcoxon-Silk, que es bueno para casos binomiales.
 
-Esto indica que existe una diferencia estadísticamente significativa entre los dos grupos en cuanto a los valores de ratio, lo cual sugiere que esta variable podría estar relacionada con la presencia de diabetes.
+Para hacer esta comparación de manera rápida, vamos a automatizarla para todas las variables a la vez. Para ello, emplearemos la función sapply() para aplicar a cada variable una función anónima que nos ejecute el test de Wilcoxon-Silk variable a variable.
 
 
-## Regresión linal simple
-
-Relación entre glyhb y glucosa
 ```{r}
-ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$stab.glu, y = diabetes_df_limpio$glyhb)) +
-  geom_point(aes(fill = diabetes_df_limpio$stab.glu)) +     # Definimos tipo de gráfico
-  xlab("glucosa") +     # Etiqueta eje X
-  ylab ("glicosilada") +    # Etiqueta eje Y
-  ggtitle ("Nivel de hemoglobina glicosilada según el valor de la glucosa") +    # Título gráfico
-  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5)   # Línea de regresión sin IC 
- 
+# lista de variables numéricas a explorar
+variables <- c("ratio", "chol", "hdl", "stab.glu", "WHR", "BMI", "bp.1s", "bp.1d")
+
+# aplicamos el test WS a cada variable con sapply()
+resultados <- sapply(variables, function(var) {
+  test <- wilcox.test(as.formula(paste(var, "~ diabetes")), data = diabetes_df_limpio)
+  test$p.value
+})
+
+# mostramos el valor p para cada variable
+print(resultados)
 ```
 
-Relación entre glyhb y ratio
+Dado que todas las variables estudiadas, excepto la tensión arterial diastólica, presentan un valor p menor de 0.05, podemos aceptar la hipótesis de que su distribución es diferente para ambos grupos. Por ello, las tendremos en cuenta en los análisis inferenciales y clasificatorios que realizaremos a continuación.
+
+
+## Regresión lineal simple
+
+Veamos una representación simple de la matriz de correlaciones:
+
 ```{r}
-ggplot(diabetes_df_limpio, aes (x = diabetes_df_limpio$ratio, y = diabetes_df_limpio$glyhb)) +
-  geom_point(aes(fill = diabetes_df_limpio$ratio)) +     # Definimos tipo de gráfico
-  xlab("ratio") +     # Etiqueta eje X
-  ylab ("glicosilada") +    # Etiqueta eje Y
-  ggtitle ("Nivel de hemoglobina glicosilada según el valor de ratio") +    # Título gráfico
-  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5)   # Línea de regresión sin IC 
- 
+# matriz de correlaciones de columnas numéricas quitando el ID
+cor(columnas_numericas[,-1])
 ```
+
+Parece que la variable que mejor correlaciona con la hemoglobina glicosilada es la glucosa en ayunas. Vamos a explorar con un gráfico de dispersión y una regresión lineal esta relación:
+
+
+```{r, warning = FALSE, echo = FALSE}
+# definimos el modelo de regresión lineal (explicar glyhb en función de stab.glu)
+modelo_glucosa <- lm(glyhb ~ stab.glu, data = diabetes_df_limpio)
+
+# representamos con ggplot2 un gráfico de dispersión
+ggplot(diabetes_df_limpio, aes (x = stab.glu, y = glyhb)) +
+  geom_point(aes(fill = stab.glu)) +     # Definimos tipo de gráfico
+  xlab("glucosa en ayunas") +     # Etiqueta eje X
+  ylab ("hemoglobina glicosilada") +    # Etiqueta eje Y
+  ggtitle ("Nivel de hemoglobina glicosilada según el valor de la glucosa en ayunas") +    # Título gráfico
+  
+  # añadimos la línea de regresión
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5) +   # Línea de regresión sin IC 
+  
+  # añadimos la ecuación de la recta y el R2
+  geom_text(x = 290, y = 3.5,                                          # Crear texto en esquina inf. izq.
+  label = paste("y", " = ", round(modelo_glucosa$coefficients[1], 3), " + ", round(modelo_glucosa$coefficients[2], 3),"x", "\n", "R2 =" , round(summary(modelo_glucosa)$r.squared, 4)), color = "darkgreen", size = 5)  # Que represente la ecuación de la línea, y sea verde
+```
+
+Debido a la dispersión de los valores, el coeficiente de determinación (R2) no es muy alto. La glucosa en ayunas, por sí sola, no parece muy útil para predecir la hemoglobina glicosilada.
 
 
 
 ## Regresión lineal múltiple para ver determinación de la diabetes
 
-```{r}
-cor(columnas_numericas[,-1])
-```
-
+Intentaremos realizar un modelo mejor con regresión lineal múltiple. Vamos a probar a explicar la variabilidad de la hemoglobina glicosilada con un conjunto de las otras variables que nos parece representativo del total de parámetros:
 
 ```{r}
-  
-mrm_diabetes <- lm(columnas_numericas$glyhb ~ columnas_numericas$stab.glu + columnas_numericas$chol + columnas_numericas$hdl + columnas_numericas$ratio + columnas_numericas$bp.1s + columnas_numericas$bp.1d + columnas_numericas$BMI + columnas_numericas$WHR)
+# modelo de regresión múltiple  
+regmult_diabetes <- lm(glyhb ~ stab.glu + ratio + bp.1s + bp.1d + BMI + WHR, data = diabetes_df_limpio)
 
-summary(mrm_diabetes)
+summary(regmult_diabetes)
 ```
 
-Buscamos los predictores óptimos:
+El coeficiente de determinación (R2) sigue sin ser demasiado bueno. Por suerte, existe una función en R, step(), que nos permite inferir cuál podría ser la combinación óptima de predictores para un modelo. Vamos a emplearla para ver si podemos mejorar nuestra regresión lineal:
 
 ```{r}
   # Con la función step() buscamos los mejores predictores para nuestra variable
-step(object=mrm_diabetes,direction ="both", trace=1)
+step(object=regmult_diabetes,direction ="both", trace=1)
 ```
 
-
-El mejor conjunto de predictores es:
+A la luz de los resultados obtenidos, el mejor conjunto de predictores sería: glucosa en ayunas + ratio HDL/colesterol total + tensión arterial sistólica. Vamos a probar el modelo con esos predictores:
 
 ```{r}
   # Salida de la función step(): mejor combinación de variables independientes
-best_mrm_diabetes <- lm(formula = columnas_numericas$glyhb ~ columnas_numericas$stab.glu 
-                        + columnas_numericas$hdl + columnas_numericas$ratio)
+regmult_diabetes_mejorado <- lm(formula = glyhb ~ stab.glu + ratio + bp.1s, data = diabetes_df_limpio)
 
-summary(best_mrm_diabetes)
+summary(regmult_diabetes_mejorado)
 ```
+
+Este modelo no parece significativamente mejor que el anterior para explicar la hemoglobina glicosilada. Por ello, vamos a emplear otro tipo de herramientas para intentar comprender la variabilidad de este paráemtro y poder implementar modelos predictivos mejores.
+
+Empezaremos por un Análisis de Componentes Principales (PCA).
+
 
 ## Prueba de un Análisis de Componentes Principales
 
 Vamos a ver si podemos separar los dos grupos de pacientes (diabetes vs no-diabetes) en base a los componentes principales 1 y 2, que explican la mayor parte de la varianza de los datos. Para ello, seleccionamos las variables a emplear, agrupamos los pacientes en base a la presencia/ausencia de diabetes, realizamos el PCA y representamos sus resultados con autoplot().
 
 ```{r}
-library(ggplot2)
-library(dplyr)
-library(ggfortify)  # para repreentar gráficamente los resultados del PCA
-
-
 # Seleccionamos solo las columnas numéricas relevantes para el PCA
 variables_pca <- c("chol", "stab.glu", "hdl", "ratio", "glyhb", "height",
               "weight", "bp.1s", "bp.1d", "time.ppn", "BMI", "WHR")
@@ -637,23 +677,27 @@ barplot(pca_resultado$sdev[1:10]**2,
         ylab = "Variances")
 ```
 
-Para ver si el PCA permite segregar los pacientes con y sin diabetes, vamos a representar gráficamente ambos grupos en función de los primeros PC (1 y 2).
+Para ver si el PCA permite segregar los pacientes con y sin diabetes, vamos a representar gráficamente ambos grupos en función de los primeros PC (1 y 2), que explican la mayoría de la varianza.
 
 ```{r}
-# Visualizamos el resultado enfrentando PC1 y PC2
-autoplot(pca_resultado, data = datos_completos, colour = 'diabetes') +
+# Visualizamos el resultado enfrentando PC1 y PC2 y usando "diabetes" como clasificador
+autoplot(pca_resultado, data = datos_completos, colour = "diabetes") +
   labs(title = "PCA de pacientes: Diabetes vs No Diabetes",
        x = "Componente Principal 1",
        y = "Componente Principal 2") +
   theme_minimal()
 ```
 
+No parece que el análisis de PC permita separar claramente los grupos, lo que sugiere que las variables estudiadas no son excesivamente dependientes de la condición de "diabético". Necesitaremos, pues, otro tipo de herramienta para intentar hacer esta discriminación.
+
 
 ## Regresión logística
 
-Para intentar crear un modelo basado en nuestros datos que nos permita predecir la probabilidad de ser diabéticos de otro grupo de pacientes, en base a las variables medidas en ellos, emplearemos la regresión logística. Primero dividimos los datos en un grupo de entrenamiento y otro de prueba, y entrenamos el modelo con los primeros. A continuación, para poner a prueba el modelo, le pasaremos el resto de datos y analizaremos la habilidad del modelo para clasificarlos correctamente.
+Vamos a utilizar la regresión logística para llevar a cabo uno de los objetivos principales de este estudio: construir un modelo predictivo que estime la probabilidad de que un paciente sea diabético, basándonos en las variables medidas. Para ello, primero dividiremos nuestros datos en dos conjuntos: uno de entrenamiento (70% observaciones) y otro de prueba (resto de observaciones).
 
-Debemos asegurarnos de que tanto los datos de entrenamiento como los de prueba sean representativos del grupo total de pacientes, y homogéneos.
+Entrenaremos el modelo con el conjunto de entrenamiento, permitiéndole aprender la relación entre las variables y el diagnóstico de diabetes. Luego, evaluaremos su capacidad predictiva aplicándolo al conjunto de prueba, que contiene datos inéditos. Así podremos medir su eficacia para clasificar correctamente a nuevos pacientes.
+
+Es fundamental que ambos conjuntos, el de entrenamiento y el de prueba, sean representativos de la población total, y que mantengan una distribución homogénea de las clases (diabéticos y no diabéticos), para garantizar la validez del modelo y su aplicación general.
 
 ```{r}
 #fijamos la semilla
@@ -697,7 +741,7 @@ modelo_logistico <- glm(formula, data=training_set, family = "binomial")
 print(summary(modelo_logistico))
 ```
 
-Aplicamos el modelo a los datos de prueba para ver qué tal predice el resultado. Hay que fijar el umbral de probabilidad para que el modelo clasifique en uno u otro grupo. Si la probabilidad predicha de pertenercer a un grupo es mayor de 0.5, asignará el paciente a ese grupo.
+Aplicamos el modelo a los datos de prueba para ver qué tal predice el resultado. Hay que fijar el umbral de probabilidad para que el modelo clasifique en uno u otro grupo. En principio lo vamos a fijar en 0.5, que es un umbral de clasificación estándar que da igual peso a ambas clases. Si la probabilidad predicha de pertenecer a un grupo es mayor de 0.5, asignará el paciente a ese grupo.
 
 Luego, realizamos una matriz de confusión nos permitirá valorar el nivel de acierto: número de verdaderos y falsos positivos, y de verdaderos negativos y falsos negativos. Con esto, obtenemos la precisión, sensibilidad y especificidad del modelo.
 
@@ -720,19 +764,23 @@ matriz_confusion <- confusionMatrix(data = clase_predicha,
 print(matriz_confusion)
 ```
 
-La sensibilidad (44%) y el p-value (> 0.05) no parecen óptimos. Vamos a emplear una curva ROC como segundo medio para evaluar la precisión predictiva del modelo. Tenemos que fijarnos en el área bajo la curva (AUC).
+La sensibilidad es baja (50%) y el p-value es menor de 0.05, lo que indica que no estamos discriminando las clases con mucha eficacia. Sólo la mitad de los diabéticos han sido clasificados como diabéticos, de ahí ese valor de sensibilidad. La especificidad es muy buena, lo que indica que pocos no diabéticos son clasificados como diabéticos. 
+
+Vamos a emplear una curva ROC como método complementario para evaluar la precisión predictiva del modelo. Tenemos que fijarnos en el área bajo la curva (AUC). Si la AUC es cercana a 1, indicará que el modelo es bueno para discriminar entre diabéticos y no diabéticos.
 
 ```{r}
-
+# hacemos el test roc
 roc_test <- roc(response = test_set$diabetes,
                 predictor = prob_test,
                 levels = rev(levels(test_set$diabetes)), direction = ">")
+
+# representamos la curva
 plot(roc_test, print.auc = TRUE)
 ```
 
-El AUC no llega a 0.7, lo cual sugiere que el modelo no es muy buen predictor. Vamos a intentar crear un modelo mejor modificando las variables que le introducimos.
+El AUC es superior a 0.921, lo cual sugiere que el modelo es muy buen predictor. Es probable que, si usamos otro umbral (distinto de 0.5), la clasificación sea mejor. Vamos a intentar aumentar la sensibilidad del modelo, aunque sea a costa de reducir un poco la especificidad. Preferimos clasificar bien a los diabéticos de entrada, dado que tiene mayor riesgo no detectarlos cuando lo son (error beta) que estimarlos diabéticos sin serlo (error alfa).
 
-Para intentar averiguar qué variables explican mejor la variabilidad de los datos, empleamos la función step(). 
+Como todavía podríamos mejorar el modelo, usando la función step(), vamos a intentarlo antes de modificar el umbral. Esta función nos indica aproximadamente qué variables explican mejor la variabilidad de los datos, lo que permite descartar las demás y hacer más robusto (en principio) el modelo.
 
 ```{r}
 # Buscamos el ajuste óptimo con el método stepwise
@@ -740,11 +788,11 @@ modelo_step <- step(modelo_logistico, direction = "both", trace = FALSE)
 summary(modelo_step)
 ```
 
-La salida de la función nos sugiere hacer un modelo basado sólo en la glucosa en ayunas (stab.glu) y el colesterol total (chol). Vamos a probar este enfoque:
+La salida de la función nos sugiere hacer un modelo basado sólo en la glucosa en ayunas (stab.glu), el colesterol total (chol) y la tensión arterial sistólica (bp.1s). Vamos a probar este enfoque:
 
 ```{r}
 # creamos el modelo sólo con las variables que step() nos dice
-predictores <- c("stab.glu","chol")
+predictores <- c("stab.glu","chol", "bp.1s")
 
 formula_str <- paste("diabetes","~", paste(predictores, collapse=" + "))
 formula <- as.formula(formula_str)
@@ -755,7 +803,7 @@ modelo_logistico <- glm(formula, data=training_set, family = "binomial")
 print(summary(modelo_logistico))
 ```
 
-
+Hacemos la matriz de confusión:
 
 ```{r}
 
@@ -774,22 +822,62 @@ matriz_confusion <- confusionMatrix(data = clase_predicha,
 print(matriz_confusion)
 ```
 
-Vemos que ahora tenemos una precisión y una sensibilidad mejores. Para ver si podemos aceptar el modelo, haremos nuevamente una curva ROC.
+Vemos que la sensibilidad, la precisión y la especificidad no han variado significativamente. Vamos a ver qué pasa con la curva ROC:
 
 ```{r}
-
+# hacemos el test roc
 roc_test <- roc(response = test_set$diabetes,
                 predictor = prob_test,
                 levels = rev(levels(test_set$diabetes)), direction = ">")
+
+# representamos la curva
 plot(roc_test, print.auc = TRUE)
 ```
 
-El valor del AUC es 0.95, lo cual indica que el modelo ha mejorado mucho y ahora es mucho más sólido. Es decir, en principio podemos emplear un modelo basado en la glucosa en ayunas y el colesterol para predecir datos de otros pacientes,
+El valor del AUC es muy similar al anterior. En consecuencia, parece que no podemos mejorar nuestro modelo empleando las variables que tenemos. Lo único que podemos hacer es modificar el umbral clasificatorio para mejorar la sensibilidad del modelo. Vamos a ser muy estrictos: escogeremos un umbral de 0.1 para potenciar la clasificación correcta de diabéticos a costa de la de no diabéticos.
+
+```{r}
+prob_test <- predict(modelo_logistico, newdata = test_set, type="response")
+
+# definimos los dos grupos posibles
+clase_positiva <- levels(training_set$diabetes)[2] # diabéticos
+clase_negativa <- levels(training_set$diabetes)[1] # no diabéticos
+
+# cambiamos el umbral de clasificación
+clase_predicha <- factor(
+                    ifelse(prob_test > 0.1 , clase_positiva, clase_negativa),
+                    levels = levels(test_set$diabetes))
+
+# generamos la matriz d econfusión
+matriz_confusion <- confusionMatrix(data = clase_predicha,
+                                    reference = test_set$diabetes,
+                                    positive = clase_positiva)
+print(matriz_confusion)
+```
+
+Comprobamos que el AUC del modelo no varía al cambiar el umbral:
+
+```{r}
+# hacemos el test roc
+roc_test <- roc(response = test_set$diabetes,
+                predictor = prob_test,
+                levels = rev(levels(test_set$diabetes)), direction = ">")
+
+# representamos la curva
+plot(roc_test, print.auc = TRUE)
+```
+
+Hemos mejorado la capacidad del modelo para clasificar diabéticos, que es nuestro principal interés. Un mejor modelo, que maximizara la sensibilidad y la especificidad, requeriría emplear otras variables o contar con un mayor número de observaciones.
 
 
 # Sección 5. Visualización
 
 Para facilitar la visualización de los datos, así como de las herramientas estadísticas empleadas, hemos programado una aplicación Shiny. En ella, mostramos los principales análisis realziados en este estudio: resumen de datos, estadística descriptiva y estadística predictiva. Podemos visualizar las características de los datos y realizar diferentes representaciones gráficas escogiendo las variables. En la parte correspondiente al modelo de regresión logística, podemos seleccionar el tamaño de los conjuntos de entrenamiento y de prueba y las variables empleadas para la predicción, así como representar la curva ROC y ver su principal parámetro: el área bajo la curva (AUC), indicador de la capacidad predictiva del modelo.
+
+```{r}
+  # Convertimos en .csv sin números de fila para cargarlo en Shiny
+write.csv(diabetes_df_limpio, "diabetes_limpio.csv", row.names = FALSE)
+```
 
 ## Estructura aplicación
 
@@ -1965,19 +2053,20 @@ server <- function(input, output) {
 # Creamos la aplicación Shiny
 shinyApp(ui = ui, server = server)
 ```
+
 # Sección 6. Conclusiones
 
 ## En base a todo el estudio realizado en esta práctica, haga una valoración final. Para ello, puede basarse en las siguientes preguntas: "¿disponemos de conclusiones finales?", "¿sería necesario hacer un análisis más avanzado?", "¿faltan datos para obtener otro tipo de información como...?", “¿se puede utilizar alguna de las conclusiones para tomar algún tipo de decisiones?”.
 
 En este estudio hemos realizado un análisis de las variables cuantitativas y cualitativas de un grupo amplio de pacientes (403), de los cuales un 15,6% eran diabéticos y un 23,3 % eran hipertensos. El diagnóstico de diabetes se establece habitualmente en la práctica clínica cuando la hemoglobina glicosilada del paciente iguala o supera el 6,5%. Nuestro propósito principal era comprobar si alguna de las otras variables medidas en estos pacientes presentaba una correlación sólida con respecto a la hemoglobina glicosilada, y, por tanto, si podía servir como marcador biologico para establecer el riesgo de diabetes antes de debutar con la enfermedad.
 
-Nuestro análisis estadístico descriptivo reveló cierto nivel de correlación entre los niveles de hemoglobina glicosilada y los de la variable... Por ello, decidimo realizar un análisis inferencial con el propósito de comprobar si un modelo basado en esa correlación podría ayudarnos a diagnosticar la diabetes empleando la variable... 
+Nuestro análisis estadístico descriptivo reveló cierto nivel de correlación entre los niveles de hemoglobina glicosilada y los de la glucosa en ayunas. Por ello, decidimos realizar un análisis de regresión lineal simple con el propósito de comprobar si un modelo basado en esa correlación podría ayudarnos a predecir niveles altos de hemoglobina glicosilada en función del nivel de glucosa en ayunas. Como el modelo no parecía muy eficaz, realizamos una regresión lineal múltiple, que tampoco reveló una capacidad predictiva satisfactoria.
 
-Hemos entrenado un modelo con machine learning, aportándole una parte de los datos de nuestro estudio (asegurándonos de que eran homogéneos y representativos del grupo de pacientes). A continuación, hemos probado este modelo con el resto de los datos disponibles. La capacidad del modelo para establecer el diagnóstico de diabetes correctamente usando la variable... como predictor fue del .....%. Este nivel de acierto supera al mero azar, aunque tiene un notable espacio de mejora. 
+A continuación, decidimos emplear herramientas más potentes. Primero, comprobamos si un análisis de componentes principales nos permitía clasificar adecuadamente a los pacientes en diabéticos y no diabéticos, en función del resto de variables numéricas. Como esta prueba tampoco dio resultados sólidos, nos propusimos realizar una regresión logística, basada en el entrenamiento de un modelo y su posterior validación. Ajustando progresivamente los parámetros, conseguimos construir un modelo con una precisión, sensibilidad y especificidad muy buenas. 
 
-Consideramos, sin embargo, dado el alto porcentaje de observaciones perdidas (al eliminar los NAs), que el modelo podría tener estar sobre-entrenado y, por ello, tener poca capacidad para hacer estimaciones ante conjuntos de datos distintos del empleado aquí, aunque sean del mismo tipo.
+Finalmente, creamos una aplicación Shiny compleja que permite no sólo visualizar los datos de nuestro estudio, sino también hacer las representaciones gráficas correspondientes y el modelo de regresión logística de manera interactiva, ajustando las variables y otros parámetros.
 
-Por ello, consideramos que habría que explorar otro tipo de variables biológicas para ver si se puede encontrar un marcador más eficiente para predecir el debut de la diabetes y actuar de urgencia sobre el paciente con el fin de intentar evitarlo.
+Como conclusión, consideramos que hemos hecho un análisis estadístico completo y construido un modelo eficaz para clasificar a otros grupos de pacientes, distintos de los aquí analizados, en "diabéticos" o "no diabéticos". Sin embargo, habría que explorar otro tipo de variables biológicas para ver si se pueden conseguir modelos multiparamétricos o uniparamétricos aún mejores. Tales modelos podrían ayudar a anticipar el debut de la diabetes, lo que facilitaría actuar de urgencia sobre el paciente para intentar evitarlo (por ejemplo, mejorando los hábitos alimenticios).
 
 
 ## En otro orden de cuestiones, valorad también el trabajo en grupo y la calidad del informe de análisis de datos generado.
